@@ -1,0 +1,142 @@
+// 主题变量
+:root {
+  // 主色调
+  --primary-color: #1890ff;
+  --primary-hover: #40a9ff;
+  --primary-active: #096dd9;
+  
+  // 主题模式
+  --theme-mode: light;
+  
+  // 布局变量
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
+  --header-height: 64px;
+  
+  // 颜色变量
+  --bg-color: #f5f7fa;
+  --text-color: #333;
+  --text-secondary: #666;
+  --border-color: #e8e8e8;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  
+  // 组件颜色
+  --header-bg: #fff;
+  --sidebar-bg: #001529;
+  --content-bg: #fff;
+  --card-bg: #fff;
+  
+  // 深色主题变量
+  --dark-bg-color: #1a1a1a;
+  --dark-text-color: #ffffff;
+  --dark-text-secondary: #e0e0e0;
+  --dark-border-color: #404040;
+  --dark-shadow-color: rgba(0, 0, 0, 0.3);
+  --dark-header-bg: #2a2a2a;
+  --dark-sidebar-bg: #2a2a2a;
+  --dark-content-bg: #2a2a2a;
+  --dark-card-bg: #2a2a2a;
+}
+
+// 深色主题
+body.theme-dark {
+  // 基础颜色
+  --bg-color: var(--dark-bg-color);
+  --text-color: var(--dark-text-color);
+  --text-secondary: var(--dark-text-secondary);
+  --border-color: var(--dark-border-color);
+  --shadow-color: var(--dark-shadow-color);
+  --header-bg: var(--dark-header-bg);
+  --sidebar-bg: var(--dark-sidebar-bg);
+  --content-bg: var(--dark-content-bg);
+  --card-bg: var(--dark-card-bg);
+  
+  // 主色调 - 移除硬编码，使用动态设置的值
+  // --primary-color: #177ddc; // 移除这行，使用动态设置的值
+  // --primary-hover: #1f93ff; // 移除这行，使用动态设置的值
+  // --primary-active: #0958b5; // 移除这行，使用动态设置的值
+  
+  // Element Plus 组件变量 - 移除硬编码，使用动态设置的值
+  // --el-color-primary: #177ddc; // 移除这行，使用动态设置的值
+  // --el-color-primary-light-3: #1f93ff; // 移除这行，使用动态设置的值
+  // --el-color-primary-light-5: #40a9ff; // 移除这行，使用动态设置的值
+  // --el-color-primary-light-7: #69c0ff; // 移除这行，使用动态设置的值
+  // --el-color-primary-light-8: #91d5ff; // 移除这行，使用动态设置的值
+  // --el-color-primary-light-9: #bae7ff; // 移除这行，使用动态设置的值
+  // --el-color-primary-dark-2: #0958b5; // 移除这行，使用动态设置的值
+  
+  // 深色模式下的hover和active状态（基于动态主题色）
+  --primary-hover: var(--el-color-primary-light-3);
+  --primary-active: var(--el-color-primary-dark-2);
+  
+  // 深色模式下的交互状态背景色
+  --hover-bg: rgba(255, 255, 255, 0.12);
+  --active-bg: rgba(255, 255, 255, 0.18);
+  --active-bg-light: rgba(255, 255, 255, 0.08);
+  
+  --el-bg-color: #1a1a1a;
+  --el-bg-color-page: #0f0f0f;
+  --el-bg-color-overlay: #2a2a2a;
+  
+  --el-text-color-primary: #ffffff;
+  --el-text-color-regular: #f0f0f0;
+  --el-text-color-secondary: #d0d0d0;
+  --el-text-color-placeholder: #808080;
+  --el-text-color-disabled: #808080;
+  
+  --el-border-color: #404040;
+  --el-border-color-light: #505050;
+  --el-border-color-lighter: #606060;
+  --el-border-color-extra-light: #707070;
+  
+  --el-fill-color-blank: #2a2a2a;
+  --el-fill-color: #333333;
+  --el-fill-color-light: #404040;
+  --el-fill-color-lighter: #505050;
+  --el-fill-color-extra-light: #606060;
+  --el-fill-color-dark: #1a1a1a;
+  --el-fill-color-darker: #0f0f0f;
+  
+  --el-mask-color: rgba(0, 0, 0, 0.8);
+  --el-mask-color-extra-light: rgba(0, 0, 0, 0.3);
+  
+  --el-box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.3);
+  --el-box-shadow-light: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
+  --el-box-shadow-dark: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.12);
+}
+
+// 布局尺寸
+.layout-compact {
+  --sidebar-width: 200px;
+}
+
+.layout-wide {
+  --sidebar-width: 280px;
+}
+
+// 响应式断点
+$breakpoints: (
+  xs: 480px,
+  sm: 768px,
+  md: 1024px,
+  lg: 1200px,
+  xl: 1600px
+);
+
+// 混入
+@mixin respond-to($breakpoint) {
+  @if map-has-key($breakpoints, $breakpoint) {
+    @media (min-width: map-get($breakpoints, $breakpoint)) {
+      @content;
+    }
+  }
+}
+
+@mixin respond-below($breakpoint) {
+  @if map-has-key($breakpoints, $breakpoint) {
+    $width: map-get($breakpoints, $breakpoint) - 1px;
+    @media (max-width: $width) {
+      @content;
+    }
+  }
+} 

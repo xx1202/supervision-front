@@ -1,0 +1,50 @@
+/* 自定义Element Plus主题 - 简化版 */
+
+:root {
+  /* Element Plus 基础颜色 */
+  --el-color-primary: #d32f2f !important;
+  --el-color-success: #2e7d32 !important;
+  --el-color-warning: #ed6c02 !important;
+  --el-color-danger: #d32f2f !important;
+  --el-color-info: #1976d2 !important;
+  
+  /* 扩展颜色 */
+  --el-color-secondary: #6c757d !important;
+  --el-color-accent: #ff6b6b !important;
+  --el-color-neutral: #495057 !important;
+  --el-color-light: #f8f9fa !important;
+  --el-color-dark: #212529 !important;
+  
+  /* 操作按钮专用颜色 */
+  --el-color-edit: #1976d2 !important;
+  --el-color-delete: #d32f2f !important;
+  --el-color-view: #2e7d32 !important;
+  
+  /* 按钮颜色 */
+  --el-color-button-primary: #d32f2f !important;
+  --el-color-button-secondary: #6c757d !important;
+  --el-color-button-success: #2e7d32 !important;
+  --el-color-button-warning: #ed6c02 !important;
+  --el-color-button-danger: #d32f2f !important;
+  --el-color-button-info: #1976d2 !important;
+  
+  /* 输入框颜色 */
+  --el-color-input-border: #e0e0e0 !important;
+  --el-color-input-focus: #d32f2f !important;
+  --el-color-input-placeholder: #9e9e9e !important;
+  
+  /* 表格颜色 */
+  --el-color-table-header: #f8f9fa !important;
+  --el-color-table-row: #ffffff !important;
+  --el-color-table-hover: #f5f5f5 !important;
+  --el-color-table-border: #e9ecef !important;
+  
+  /* 组件专用颜色 */
+  --breadcrumb-bg: #ffffff !important;
+  --breadcrumb-border: #f0f0f0 !important;
+  --breadcrumb-text: #333333 !important;
+  --tab-bg: #ffffff !important;
+  --tab-border: #e8e8e8 !important;
+  --tab-text: #333333 !important;
+  --primary-color: #d32f2f !important;
+}
