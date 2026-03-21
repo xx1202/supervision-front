@@ -325,7 +325,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { Plus, Connection, Aim, QuestionFilled, Expand, Fold, Select, Delete } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { roleAPI, permissionAPI } from '../../../api'
 import { logger } from '@/utils/logger'
@@ -572,7 +572,7 @@ const deleteRole = async (row: any) => {
 // 批量删除角色
 const batchDeleteRoles = async () => {
   if (selectedRoles.value.length === 0) {
-    ElMessageBox.warning('请选择要删除的角色', '提示')
+    ElMessage.warning('请选择要删除的角色')
     return
   }
 
@@ -821,7 +821,7 @@ const checkRoleCode = async () => {
     const excludeId = isEdit.value ? currentRole.value?.id : undefined
     const response: any = await roleAPI.checkRoleCode(formData.roleCode, excludeId)
     if (response && response.code === 200 && !response.data) {
-      ElMessageBox.warning('角色代码已存在', '提示')
+      ElMessage.warning('角色代码已存在')
     }
   } catch (error: any) {
     console.error('检查角色代码失败:', error)
@@ -900,14 +900,14 @@ const submitForm = async () => {
 // 开始批量删除
 const startBatchDelete = () => {
   showSelection.value = true
-  ElMessageBox.success('已开启批量删除模式', '提示')
+  ElMessage.success('已开启批量删除模式')
 }
 
 // 取消批量删除
 const cancelBatchDelete = () => {
   showSelection.value = false
   selectedRoles.value = []
-  ElMessageBox.info('已取消批量删除模式', '提示')
+  ElMessage.info('已取消批量删除模式')
 }
 
 // 组件挂载时加载数据

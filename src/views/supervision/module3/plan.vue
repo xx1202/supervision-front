@@ -20,8 +20,8 @@
             <el-form-item label="巡查节次">
               <el-select v-model="searchForm.period" placeholder="选择节次" @change="handleSearch">
                 <el-option label="全部" value="" />
-                <el-option label="第4节" value="4" />
-                <el-option label="第8节" value="8" />
+                <el-option label="第4节" :value="4" />
+                <el-option label="第8节" :value="8" />
               </el-select>
             </el-form-item>
             <el-form-item label="状态">
@@ -280,8 +280,8 @@
         </el-form-item>
         <el-form-item label="巡查节次" prop="period">
           <el-select v-model="planForm.period" placeholder="选择巡查节次" style="width: 100%">
-            <el-option label="第4节" value="4" />
-            <el-option label="第8节" value="8" />
+            <el-option label="第4节" :value="4" />
+            <el-option label="第8节" :value="8" />
           </el-select>
         </el-form-item>
         <el-form-item label="巡查楼层" prop="floorRange">
@@ -405,7 +405,7 @@
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Plus, User, Calendar, View, Edit, VideoPlay, Document, Location, House } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { classroomInspectionScheduleAPI, statisticsAPI, userAPI } from '@/api'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { debug } from '@/utils/logger'
@@ -459,7 +459,7 @@ const handleViewModeChange = (event: CustomEvent) => {
 // 搜索表单
 const searchForm = reactive({
   dateRange: [] as string[],
-  period: '',
+  period: undefined as number | undefined,  // 改为number类型，与后端一致
   status: ''
 })
 
@@ -642,12 +642,12 @@ const loadFloorStatistics = async (date: string) => {
     } else {
       // 如果API调用失败，使用默认楼层列表
       setDefaultFloors()
-      ElMessageBox.warning('获取楼层统计失败，使用默认楼层列表', '提示')
+      ElMessage.warning('获取楼层统计失败，使用默认楼层列表')
     }
   } catch (error: any) {
     // 如果出现错误，使用默认楼层列表
     setDefaultFloors()
-    ElMessageBox.warning('获取楼层统计失败，使用默认楼层列表', '提示')
+    ElMessage.warning('获取楼层统计失败，使用默认楼层列表')
   } finally {
     floorStatisticsLoading.value = false
   }
@@ -929,7 +929,7 @@ const submitPlan = async () => {
         planForm.notes !== currentPlan.value.notes
       
       if (!hasChanges) {
-        ElMessageBox.info('数据未发生变化', '提示')
+        ElMessage.info('数据未发生变化')
         return
       }
     }

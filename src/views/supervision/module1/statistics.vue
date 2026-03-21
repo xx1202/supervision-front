@@ -230,7 +230,7 @@ import {
   Refresh,
   View
 } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { 
   init as echartsInit,
@@ -356,7 +356,7 @@ const loadViolationTypes = async () => {
 // 加载统计数据
 const loadStatistics = async () => {
   if (!filterForm.value.dateRange || filterForm.value.dateRange.length !== 2) {
-    ElMessageBox.warning('请选择时间范围', '提示')
+    ElMessage.warning('请选择时间范围')
     return
   }
 
@@ -851,7 +851,7 @@ const viewTeacherDetail = async (teacher: any) => {
 // 显示教师详情
 const showTeacherDetail = () => {
   if (!statistics.value.byTeacher || statistics.value.byTeacher.length === 0) {
-    ElMessageBox.warning('暂无教师数据', '提示')
+    ElMessage.warning('暂无教师数据')
     return
   }
   viewTeacherDetail(statistics.value.byTeacher[0])

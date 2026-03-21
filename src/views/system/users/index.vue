@@ -333,7 +333,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { userAPI, roleAPI } from '../../../api'
 
@@ -684,7 +684,7 @@ const deleteUser = async (row: any) => {
 // 批量删除用户
 const batchDeleteUsers = async () => {
   if (selectedUsers.value.length === 0) {
-    ElMessageBox.warning('请选择要删除的用户', '提示')
+    ElMessage.warning('请选择要删除的用户')
     return
   }
 
@@ -720,14 +720,14 @@ const batchDeleteUsers = async () => {
 const startBatchDelete = () => {
   showSelection.value = true
   selectedUsers.value = [] // 清空已选中的用户
-  ElMessageBox.info('请在表格中选择要批量删除的用户', '提示')
+  ElMessage.info('请在表格中选择要批量删除的用户')
 }
 
 // 取消批量删除
 const cancelBatchDelete = () => {
   showSelection.value = false
   selectedUsers.value = []
-  ElMessageBox.info('已取消批量删除', '提示')
+  ElMessage.info('已取消批量删除')
 }
 
 // 重置密码
@@ -822,7 +822,7 @@ const checkUsername = async () => {
     const excludeId = isEdit.value && currentUser.value ? currentUser.value.id : undefined
     const response: any = await userAPI.checkUsername(formData.username, excludeId)
     if (response && response.code === 200 && response.data) {
-      ElMessageBox.warning('用户名已存在', '提示')
+      ElMessage.warning('用户名已存在')
     }
   } catch (error: any) {
     console.error('检查用户名失败:', error)
@@ -837,7 +837,7 @@ const checkEmail = async () => {
     const excludeId = isEdit.value && currentUser.value ? currentUser.value.id : undefined
     const response: any = await userAPI.checkEmail(formData.email, excludeId)
     if (response && response.code === 200 && !response.data) {
-      ElMessageBox.warning('邮箱已存在', '提示')
+      ElMessage.warning('邮箱已存在')
     }
   } catch (error: any) {
     console.error('检查邮箱失败:', error)
@@ -852,7 +852,7 @@ const checkPhone = async () => {
     const excludeId = isEdit.value && currentUser.value ? currentUser.value.id : undefined
     const response: any = await userAPI.checkPhone(formData.phone, excludeId)
     if (response && response.code === 200 && !response.data) {
-      ElMessageBox.warning('手机号已存在', '提示')
+      ElMessage.warning('手机号已存在')
     }
   } catch (error: any) {
     console.error('检查手机号失败:', error)

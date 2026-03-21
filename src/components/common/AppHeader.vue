@@ -211,16 +211,32 @@
         <div class="right-content">
           <!-- 搜索框 -->
           <div class="search-container">
-            <el-input
+            <el-autocomplete
               v-model="searchKeyword"
+              :fetch-suggestions="querySearch"
+              :trigger-on-focus="false"
               placeholder="搜索..."
               class="search-input"
               clearable
+              popper-class="search-suggestions"
+              @select="handleSelect"
+              @keyup.enter="handleEnter"
             >
               <template #prefix>
                 <el-icon><Search /></el-icon>
               </template>
-            </el-input>
+              <template #default="{ item }">
+                <div class="search-item">
+                  <el-icon v-if="item.icon" class="search-item-icon">
+                    <component :is="item.icon" />
+                  </el-icon>
+                  <div class="search-item-content">
+                    <div class="search-item-title">{{ item.title }}</div>
+                    <div class="search-item-path">{{ item.path }}</div>
+                  </div>
+                </div>
+              </template>
+            </el-autocomplete>
           </div>
           
           <!-- 视图模式切换 -->
@@ -293,8 +309,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Search, 
   Bell, 
@@ -362,9 +378,140 @@ const emit = defineEmits<{
 }>()
 
 const route = useRoute()
+const router = useRouter()
 const searchKeyword = ref('')
 const isFullscreen = ref(false)
 const viewModeStore = useViewModeStore()
+
+// 可搜索的路由列表
+interface SearchRoute {
+  path: string
+  title: string
+  fullTitle: string
+  icon?: any
+}
+
+const searchRoutes = ref<SearchRoute[]>([])
+
+// 生成可搜索的路由列表
+const generateSearchRoutes = (routes: any[], basePath = '', prefixTitle: string[] = []): SearchRoute[] => {
+  const result: SearchRoute[] = []
+  
+  for (const routeItem of routes) {
+    // 跳过隐藏的路由
+    if (routeItem.meta?.hidden) {
+      continue
+    }
+    
+    // 构建当前路径
+    let currentPath = ''
+    if (routeItem.path.startsWith('/')) {
+      // 绝对路径
+      currentPath = routeItem.path
+    } else if (basePath) {
+      // 相对路径，需要拼接
+      currentPath = basePath.endsWith('/') 
+        ? `${basePath}${routeItem.path}` 
+        : `${basePath}/${routeItem.path}`
+    } else {
+      currentPath = `/${routeItem.path}`
+    }
+    
+    // 确保路径以/开头
+    if (!currentPath.startsWith('/')) {
+      currentPath = `/${currentPath}`
+    }
+    
+    // 构建标题
+    const currentTitle = routeItem.meta?.title 
+      ? [...prefixTitle, routeItem.meta.title] 
+      : prefixTitle
+    
+    // 如果有标题且有组件，添加到搜索结果（排除重定向路由）
+    if (routeItem.meta?.title && routeItem.component && !routeItem.redirect) {
+      result.push({
+        path: currentPath,
+        title: routeItem.meta.title,
+        fullTitle: currentTitle.join(' > '),
+        icon: routeItem.meta.icon
+      })
+    }
+    
+    // 递归处理子路由
+    if (routeItem.children && routeItem.children.length > 0) {
+      const childRoutes = generateSearchRoutes(routeItem.children, currentPath, currentTitle)
+      result.push(...childRoutes)
+    }
+  }
+  
+  return result
+}
+
+// 初始化搜索路由列表
+onMounted(() => {
+  // 获取所有路由
+  const allRoutes = router.getRoutes()
+  searchRoutes.value = generateSearchRoutes(allRoutes)
+})
+
+// 搜索建议
+const querySearch = (queryString: string, cb: (results: any[]) => void) => {
+  if (!queryString || queryString.trim() === '') {
+    cb([])
+    return
+  }
+  
+  const keyword = queryString.toLowerCase().trim()
+  const results = searchRoutes.value
+    .filter(route => {
+      // 搜索标题和路径
+      const titleMatch = route.title.toLowerCase().includes(keyword) || 
+                        route.fullTitle.toLowerCase().includes(keyword)
+      const pathMatch = route.path.toLowerCase().includes(keyword)
+      return titleMatch || pathMatch
+    })
+    .map(route => ({
+      value: route.fullTitle,
+      path: route.path,
+      title: route.title,
+      fullTitle: route.fullTitle,
+      icon: route.icon
+    }))
+    .slice(0, 10) // 限制最多显示10个结果
+  
+  cb(results)
+}
+
+// 处理选择
+const handleSelect = (item: any) => {
+  if (item.path) {
+    router.push(item.path)
+    searchKeyword.value = ''
+  }
+}
+
+// 处理回车键
+const handleEnter = () => {
+  if (searchKeyword.value.trim()) {
+    // 如果只有一个结果，直接跳转
+    const keyword = searchKeyword.value.toLowerCase().trim()
+    const matches = searchRoutes.value.filter(route => {
+      const titleMatch = route.title.toLowerCase().includes(keyword) || 
+                        route.fullTitle.toLowerCase().includes(keyword)
+      const pathMatch = route.path.toLowerCase().includes(keyword)
+      return titleMatch || pathMatch
+    })
+    
+    if (matches.length === 1) {
+      router.push(matches[0].path)
+      searchKeyword.value = ''
+    } else if (matches.length > 1) {
+      // 多个结果时，跳转到第一个
+      router.push(matches[0].path)
+      searchKeyword.value = ''
+    }
+  }
+}
 
 // 定义支持视图模式的页面路径
 const VIEW_MODE_PAGES = [
@@ -441,19 +588,19 @@ const toggleFullscreen = () => {
     // 进入全屏
     document.documentElement.requestFullscreen().then(() => {
       isFullscreen.value = true
-      ElMessageBox.success('已进入全屏模式', '提示')
+      ElMessage.success('已进入全屏模式')
     }).catch(err => {
       console.error('全屏失败:', err)
-      ElMessageBox.error('全屏失败', '错误')
+      ElMessage.error('全屏失败')
     })
   } else {
     // 退出全屏
     document.exitFullscreen().then(() => {
       isFullscreen.value = false
-      ElMessageBox.success('已退出全屏模式', '提示')
+      ElMessage.success('已退出全屏模式')
     }).catch(err => {
       console.error('退出全屏失败:', err)
-      ElMessageBox.error('退出全屏失败', '错误')
+      ElMessage.error('退出全屏失败')
     })
   }
 }
@@ -544,17 +691,43 @@ onMounted(() => {
         .search-input {
           width: 240px;
           
+          // el-autocomplete 内部结构：el-autocomplete > el-input > el-input__wrapper
+          // 使用 :deep() 穿透 scoped 样式
+          :deep(.el-input) {
+            .el-input__wrapper {
+              border-radius: 20px !important;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+              transition: all 0.3s ease !important;
+              
+              &:hover {
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+              }
+              
+              &.is-focus {
+                box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+              }
+            }
+          }
+          
+          // 直接选择器（双重保险）
           :deep(.el-input__wrapper) {
-            border-radius: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
+            border-radius: 20px !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+            transition: all 0.3s ease !important;
             
             &:hover {
-              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
             }
             
             &.is-focus {
-              box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+              box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+            }
+          }
+          
+          // 前缀图标样式
+          :deep(.el-input__prefix) {
+            .el-icon {
+              color: #909399;
             }
           }
         }
@@ -985,23 +1158,6 @@ body.theme-dark {
     
     .header-right {
       .right-content {
-        .search-container {
-          .search-input {
-            :deep(.el-input__wrapper) {
-              background: var(--fill-color);
-              border-color: var(--border-color);
-              
-              .el-input__inner {
-                color: var(--text-color);
-                
-                &::placeholder {
-                  color: var(--text-color-placeholder);
-                }
-              }
-            }
-          }
-        }
-        
         .fullscreen-btn {
           color: var(--text-color-secondary);
           font-weight: 500;
@@ -1213,6 +1369,124 @@ body.theme-dark {
                 }
               }
             }
+          }
+        }
+      }
+    }
+  }
+}
+
+</style>
+
+<style lang="scss">
+// 搜索框样式（全局样式，确保优先级）
+// el-autocomplete 的 DOM 结构：<div class="el-autocomplete search-input"> <div class="el-input"> <div class="el-input__wrapper"> ...
+// 使用更通用的选择器确保样式生效 - 直接选择 .search-input 下的所有 .el-input__wrapper
+.app-header .header-right .right-content .search-container .search-input .el-input__wrapper {
+  border-radius: 20px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.3s ease !important;
+  
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  }
+  
+  &.is-focus {
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+  }
+}
+
+// 前缀图标样式
+.app-header .header-right .right-content .search-container .search-input .el-input__prefix .el-icon {
+  color: #909399 !important;
+}
+
+// 深色主题下的搜索框样式
+body.theme-dark .app-header .header-right .right-content .search-container .search-input .el-input__wrapper {
+  background: var(--fill-color) !important;
+  border-color: var(--border-color) !important;
+  
+  .el-input__inner {
+    color: var(--text-color) !important;
+    
+    &::placeholder {
+      color: var(--text-color-placeholder) !important;
+    }
+  }
+}
+
+// 搜索建议下拉菜单样式（全局样式，因为el-autocomplete的popper挂载在body上）
+.search-suggestions {
+  .el-autocomplete-suggestion__list {
+    padding: 8px 0;
+    
+    .search-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      
+      &:hover {
+        background-color: #f5f7fa;
+      }
+      
+      .search-item-icon {
+        font-size: 18px;
+        color: #909399;
+        flex-shrink: 0;
+      }
+      
+      .search-item-content {
+        flex: 1;
+        min-width: 0;
+        
+        .search-item-title {
+          font-size: 14px;
+          color: #303133;
+          font-weight: 500;
+          margin-bottom: 4px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        
+        .search-item-path {
+          font-size: 12px;
+          color: #909399;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+    }
+  }
+}
+
+// 深色主题下的搜索建议样式
+body.theme-dark {
+  .search-suggestions {
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    
+    .el-autocomplete-suggestion__list {
+      .search-item {
+        &:hover {
+          background-color: var(--hover-bg);
+        }
+        
+        .search-item-icon {
+          color: var(--text-color-secondary);
+        }
+        
+        .search-item-content {
+          .search-item-title {
+            color: var(--text-color);
+          }
+          
+          .search-item-path {
+            color: var(--text-color-secondary);
           }
         }
       }

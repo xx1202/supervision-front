@@ -378,7 +378,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { Plus, Share, ArrowDown, Check, Close, FolderOpened } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { permissionAPI } from '../../../api'
 
@@ -721,7 +721,7 @@ const deletePermission = async (row: any) => {
 // 批量删除权限
 const batchDeletePermissions = async () => {
   if (selectedPermissions.value.length === 0) {
-    ElMessageBox.warning('请选择要删除的权限', '提示')
+    ElMessage.warning('请选择要删除的权限')
     return
   }
 
@@ -798,7 +798,7 @@ const checkPermissionCode = async () => {
     const excludeId = isEdit.value ? currentPermission.value?.id : undefined
     const response: any = await permissionAPI.checkPermissionCode(formData.permissionCode, excludeId)
     if (response && response.code === 200 && !response.data) {
-      ElMessageBox.warning('权限代码已存在', '提示')
+      ElMessage.warning('权限代码已存在')
     }
   } catch (error: any) {
     console.error('检查权限代码失败:', error)
@@ -928,14 +928,14 @@ const submitForm = async () => {
 const startBatchDelete = () => {
   showSelection.value = true
   selectedPermissions.value = [] // 清空已选中的权限
-  ElMessageBox.info('请选择要批量删除的权限', '提示')
+  ElMessage.info('请选择要批量删除的权限')
 }
 
 // 取消批量删除
 const cancelBatchDelete = () => {
   showSelection.value = false
   selectedPermissions.value = []
-  ElMessageBox.info('已取消批量删除', '提示')
+  ElMessage.info('已取消批量删除')
 }
 
 // 组件挂载时加载数据

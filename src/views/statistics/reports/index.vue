@@ -207,7 +207,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { Plus, Operation, Refresh, Document, Download, Delete, View } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { reportAPI } from '@/api'
 import { 
@@ -357,7 +357,7 @@ const getModuleTypeName = (moduleType: string) => {
 // 提交创建报表
 const submitCreateReport = async () => {
   if (!createForm.reportName || !createForm.startDate || !createForm.endDate) {
-    ElMessageBox.warning('请填写必要信息', '提示')
+    ElMessage.warning('请填写必要信息')
     return
   }
   
@@ -394,7 +394,7 @@ const submitCreateReport = async () => {
 
 // 批量操作
 const batchOperation = () => {
-  ElMessageBox.info('批量操作功能待开发', '提示')
+  ElMessage.info('批量操作功能待开发')
 }
 
 // 刷新数据
@@ -426,7 +426,7 @@ const viewReport = (row: any) => {
 // 下载报表
 const downloadReport = async (row: any) => {
   if (row.status !== 'completed') {
-    ElMessageBox.warning('报表还未生成完成，无法下载', '提示')
+    ElMessage.warning('报表还未生成完成，无法下载')
     return
   }
   

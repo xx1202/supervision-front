@@ -347,7 +347,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { supervisionRecordAPI } from '@/api'
 import {Document} from "@element-plus/icons-vue";
@@ -537,7 +537,7 @@ const rejectRecord = (row: any) => {
 // 确认审核
 const confirmAudit = async () => {
   if (!auditForm.note.trim()) {
-    ElMessageBox.warning('请输入审核意见', '提示')
+    ElMessage.warning('请输入审核意见')
     return
   }
 
@@ -644,7 +644,7 @@ const previewPhoto = async (filePath: string) => {
     window.open(url, '_blank')
   } catch (error) {
     console.error('预览媒体文件失败:', error)
-    ElMessageBox.error('预览媒体文件失败', '错误')
+    ElMessage.error('预览媒体文件失败')
   }
 }
 // 查看照片和视频

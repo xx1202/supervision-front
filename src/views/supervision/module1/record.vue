@@ -413,22 +413,22 @@
           <h4>教学评价</h4>
           <el-descriptions :column="2" border>
             <el-descriptions-item label="教学态度">
-              {{ getTeachingEvaluationValue(currentRecord.teachingEvaluation, 'teachingAttitude') }}
+              {{ getTeachingEvaluationValue(currentRecord.teachingEvaluation, 'overallEffect') }}
             </el-descriptions-item>
             <el-descriptions-item label="座位安排">
               {{ getTeachingEvaluationValue(currentRecord.teachingEvaluation, 'seatingArrangement') }}
             </el-descriptions-item>
             <el-descriptions-item label="课堂氛围">
-              {{ getTeachingEvaluationValue(currentRecord.teachingEvaluation, 'classroomAtmosphere') }}
+              {{ getTeachingEvaluationValue(currentRecord.teachingEvaluation, 'teachingMethod') }}
             </el-descriptions-item>
             <el-descriptions-item label="学生参与">
-              {{ getTeachingEvaluationValue(currentRecord.teachingEvaluation, 'studentParticipation') }}
+              {{ getTeachingEvaluationValue(currentRecord.teachingEvaluation, 'teachingAttitude') }}
             </el-descriptions-item>
             <el-descriptions-item label="教学评分">
-              {{ currentRecord.teachingScore || 0 }}分
+              {{ getTeachingEvaluationValue(currentRecord.teachingEvaluation, 'teachingScore') }}分
             </el-descriptions-item>
             <el-descriptions-item label="备注">
-              {{ getTeachingEvaluationValue(currentRecord.teachingEvaluation, '测试') }}
+              {{ currentRecord.notes }}
             </el-descriptions-item>
           </el-descriptions>
         </div>
@@ -592,7 +592,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watch } from 'vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { supervisionRecordAPI, supervisionScheduleAPI } from '@/api'
 import { Document, ArrowLeft } from '@element-plus/icons-vue'
@@ -969,7 +969,7 @@ const rejectRecord = (row: any) => {
 // 确认审核
 const confirmAudit = async () => {
   if (!auditForm.note.trim()) {
-    ElMessageBox.warning('请输入审核意见', '提示')
+    ElMessage.warning('请输入审核意见')
     return
   }
 

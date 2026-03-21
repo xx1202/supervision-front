@@ -718,7 +718,7 @@
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Plus, ArrowLeft } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { classroomInspectionRecordAPI, classroomInspectionScheduleAPI } from '../../../api/index'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { debug, error as logError } from '@/utils/logger'
@@ -1425,7 +1425,7 @@ const submitRecordForm = async () => {
     
     // 验证巡查评分数据
     if (!recordForm.inspectionScores || recordForm.inspectionScores.length === 0) {
-      ElMessageBox.warning('请配置巡查评分项目', '提示')
+      ElMessage.warning('请配置巡查评分项目')
       return
     }
     
@@ -1436,13 +1436,13 @@ const submitRecordForm = async () => {
       if (item.itemType === 'boolean' || item.maxScore === 0) {
         // 布尔类型：actualScore只能是0或1
         if (item.actualScore !== 0 && item.actualScore !== 1) {
-          ElMessageBox.warning(`${item.itemName} 的评分值不正确，只能是0或1`, '验证失败')
+          ElMessage.warning(`${item.itemName} 的评分值不正确，只能是0或1`)
           return
         }
       } else {
         // 分数类型：actualScore在0到maxScore之间
         if (item.actualScore < 0 || item.actualScore > item.maxScore) {
-          ElMessageBox.warning(`${item.itemName} 的得分必须在0-${item.maxScore}之间`, '验证失败')
+          ElMessage.warning(`${item.itemName} 的得分必须在0-${item.maxScore}之间`)
           return
         }
       }
@@ -1496,7 +1496,7 @@ onMounted(async () => {
     const scheduleExists = scheduleList.value.some(s => s.id === scheduleIdFromQuery)
     if (!scheduleExists) {
       // 如果计划不在当前列表中，可能需要重新加载或提示
-      ElMessageBox.warning('指定的巡查计划不在当前列表中', '提示')
+      ElMessage.warning('指定的巡查计划不在当前列表中')
     }
   } else {
     // 只有在全部记录查看模式下才自动加载巡查记录

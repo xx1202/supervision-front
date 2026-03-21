@@ -16,13 +16,13 @@
             </el-form-item>
             <el-form-item label="星期">
               <el-select v-model="filterForm.weekDay" placeholder="选择星期" @change="searchData" clearable>
-                <el-option label="星期一" value="星期一" />
-                <el-option label="星期二" value="星期二" />
-                <el-option label="星期三" value="星期三" />
-                <el-option label="星期四" value="星期四" />
-                <el-option label="星期五" value="星期五" />
-                <el-option label="星期六" value="星期六" />
-                <el-option label="星期日" value="星期日" />
+                <el-option label="星期一" value="1" />
+                <el-option label="星期二" value="2" />
+                <el-option label="星期三" value="3" />
+                <el-option label="星期四" value="4" />
+                <el-option label="星期五" value="5" />
+                <el-option label="星期六" value="6" />
+                <el-option label="星期日" value="7" />
               </el-select>
             </el-form-item>
             <el-form-item label="教师">
@@ -60,7 +60,11 @@
             border
           >
             <el-table-column prop="semester" label="学期" width="120" />
-            <el-table-column prop="weekDay" label="星期" width="80" />
+            <el-table-column prop="weekDay" label="星期" width="80" >
+              <template #default="scope">
+                {{ weekDay(scope.row.weekDay) }}
+              </template>
+            </el-table-column>
             <el-table-column prop="period" label="节次" width="80" />
             <el-table-column prop="teacher" label="教师" width="120" />
             <el-table-column prop="courseName" label="课程名称" width="200" />
@@ -172,7 +176,11 @@ const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleString('zh-CN')
 }
+const weekDay = (week: string) => {
+  // DOTO
 
+  return week
+}
 // 新增课表
 const addSchedule = () => {
   currentSchedule.value = undefined

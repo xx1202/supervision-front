@@ -66,7 +66,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
-import type { FormInstance, type FormRules } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
 import { authAPI } from '../../api'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 

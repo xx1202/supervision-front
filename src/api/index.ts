@@ -1300,14 +1300,19 @@ export const approvalAPI = {
 
   // 批量导出通过汇总审核的记录
   batchExportRecords: async (data: {
-    ids: string[]
+    ids?: string[]
+    scheduleIds?: string[]
+    format?: string
+    dataType?: string
   }): Promise<Blob> => {
-      return $post('/v1/supervision/approval/batch-export', data, {
-          responseType: 'blob',
-          headers: {
-              'Content-Type': 'application/json'
-          }
-      })
+    const response: any = await $post('/v1/supervision/approval/batch-export', data, {
+      responseType: 'blob',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    // response 拦截器在 blob 时返回整个 AxiosResponse，这里兼容提取 data
+    return response?.data instanceof Blob ? response.data : response
   }
 }
 
@@ -1809,6 +1814,51 @@ export const reportAPI = {
       // 如果没有指定模块类型，返回所有类型的安排
       // 这里需要后端提供一个统一的接口，暂时返回空
       return Promise.resolve({ data: { records: [] } })
+    }
+  }
+}
+
+// AI 助手接口
+export const aiAPI = {
+  // AI 聊天接口
+  // 注意：后端直接返回字符串，不是 ApiResponse 格式
+  // AI 服务可能需要较长时间，使用更长的超时时间（60秒）
+  chat: async (msg: string): Promise<string> => {
+    try {
+      // 使用 request 直接调用，设置更长的超时时间
+      const response = await request.get<string>('/system/ai/chat', { 
+        params: { msg },
+        timeout: 60000 // 60秒超时
+      })
+      
+      // 响应拦截器已经处理了响应，返回的是 data
+      // 后端直接返回字符串，Spring Boot 会将其序列化为 JSON 字符串（带引号）
+      // Axios 会自动解析 JSON，所以 response 可能是字符串或对象
+      let data: string
+      if (typeof response === 'string') {
+        data = response
+      } else if (response && typeof response === 'object' && 'data' in response) {
+        data = (response as any).data
+      } else {
+        data = String(response || '')
+      }
+      
+      // 如果数据是 JSON 字符串（带引号），需要解析
+      if (typeof data === 'string' && data.startsWith('"') && data.endsWith('"')) {
+        try {
+          return JSON.parse(data)
+        } catch {
+          return data
+        }
+      }
+      return data || ''
+    } catch (error: any) {
+      console.error('AI 聊天接口调用失败:', error)
+      // 如果是超时错误，给出友好提示
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        throw new Error('请求超时，AI 服务响应时间较长，请稍后重试')
+      }
+      throw error
     }
   }
 }

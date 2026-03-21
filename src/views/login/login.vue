@@ -76,27 +76,27 @@
     </div>
 
     <!-- 测试用户区域 -->
-    <div class="test-users-overlay">
-      <div class="test-users-section">
-        <div class="test-users-title">测试用户</div>
-        <div class="user-grid">
-          <div
-            v-for="user in testUsers"
-            :key="user.username"
-            class="test-user-item"
-            @click="fillTestUser(user)"
-          >
-            <div class="user-avatar">
-              {{ user.realName.charAt(0) }}
-            </div>
-            <div class="user-info">
-              <div class="user-name">{{ user.realName }}</div>
-              <div class="user-role">{{ user.roles.join(', ') }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+<!--    <div class="test-users-overlay">-->
+<!--      <div class="test-users-section">-->
+<!--        <div class="test-users-title">测试用户</div>-->
+<!--        <div class="user-grid">-->
+<!--          <div-->
+<!--            v-for="user in testUsers"-->
+<!--            :key="user.username"-->
+<!--            class="test-user-item"-->
+<!--            @click="fillTestUser(user)"-->
+<!--          >-->
+<!--            <div class="user-avatar">-->
+<!--              {{ user.realName.charAt(0) }}-->
+<!--            </div>-->
+<!--            <div class="user-info">-->
+<!--              <div class="user-name">{{ user.realName }}</div>-->
+<!--              <div class="user-role">{{ user.roles.join(', ') }}</div>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--        </div>-->
+<!--      </div>-->
+<!--    </div>-->
 
     <!-- 底部Footer -->
     <footer class="login-footer">

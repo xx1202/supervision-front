@@ -17,7 +17,7 @@
       <el-form-item label="学期" prop="semester">
         <el-input 
           v-model="scheduleForm.semester" 
-          placeholder="请输入学期（如：2024-2025-1）"
+          placeholder="请输入学期（如：2026-1）"
           :disabled="mode === 'view'"
         />
       </el-form-item>
@@ -29,13 +29,13 @@
           style="width: 100%"
           :disabled="mode === 'view'"
         >
-          <el-option label="星期一" value="星期一" />
-          <el-option label="星期二" value="星期二" />
-          <el-option label="星期三" value="星期三" />
-          <el-option label="星期四" value="星期四" />
-          <el-option label="星期五" value="星期五" />
-          <el-option label="星期六" value="星期六" />
-          <el-option label="星期日" value="星期日" />
+          <el-option label="星期一" value="1" />
+          <el-option label="星期二" value="2" />
+          <el-option label="星期三" value="3" />
+          <el-option label="星期四" value="4" />
+          <el-option label="星期五" value="5" />
+          <el-option label="星期六" value="6" />
+          <el-option label="星期日" value="7" />
         </el-select>
       </el-form-item>
       
@@ -72,20 +72,45 @@
         />
       </el-form-item>
       
-      <el-form-item label="课程名称" prop="courseName">
-        <el-input 
-          v-model="scheduleForm.courseName" 
-          placeholder="请输入课程名称"
+      <el-form-item label="课程名称" prop="courseId">
+        <el-select
+          v-model="scheduleForm.courseId"
+          placeholder="请选择课程"
+          style="width: 100%"
+          filterable
+          remote
+          :remote-method="handleCourseSearch"
+          :loading="courseLoading"
           :disabled="mode === 'view'"
-        />
+          @change="handleCourseChange"
+        >
+          <el-option
+            v-for="course in courses"
+            :key="course.id"
+            :label="course.courseName"
+            :value="course.id"
+          />
+        </el-select>
       </el-form-item>
       
-      <el-form-item label="班级" prop="className">
-        <el-input 
-          v-model="scheduleForm.className" 
-          placeholder="请输入班级名称"
+      <el-form-item label="班级" prop="classId">
+        <el-select
+          v-model="scheduleForm.classId"
+          placeholder="请选择班级"
+          style="width: 100%"
+          filterable
+          remote
+          :remote-method="handleClassSearch"
+          :loading="classLoading"
           :disabled="mode === 'view'"
-        />
+        >
+          <el-option
+            v-for="cls in classes"
+            :key="cls.id"
+            :label="cls.className"
+            :value="cls.id"
+          />
+        </el-select>
       </el-form-item>
       
       <el-form-item label="教室" prop="classroomId">
@@ -94,6 +119,9 @@
           placeholder="请选择教室"
           style="width: 100%"
           filterable
+          remote
+          :remote-method="handleClassroomSearch"
+          :loading="classroomLoading"
           :disabled="mode === 'view'"
         >
           <el-option
@@ -125,8 +153,8 @@
 <script setup lang="ts">
 import { ref, reactive, watch, computed, onMounted } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import { scheduleAPI, classroomAPI } from '@/api'
-import type { ScheduleDetailVO, ScheduleRequest, Classroom } from '@/types/api'
+import { scheduleAPI, classroomAPI, courseAPI, classAPI } from '@/api'
+import type { ScheduleDetailVO, ScheduleRequest, Classroom, Course, CourseQueryParams, Class, ClassQueryParams, ClassroomQueryParams } from '@/types/api'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 
 // 组件属性
@@ -161,23 +189,33 @@ const dialogVisible = computed({
 
 // 教室列表
 const classrooms = ref<Classroom[]>([])
+const classroomLoading = ref(false)
+
+// 课程列表（用于搜索选择）
+const courses = ref<Course[]>([])
+const courseLoading = ref(false)
+
+// 班级列表（用于搜索选择）
+const classes = ref<Class[]>([])
+const classLoading = ref(false)
 
 // 表单数据
 const scheduleForm = reactive<ScheduleRequest>({
   semester: '',
   weekDay: '',
   period: '1-2',
+  classId: '',
+  courseId: '',
+  classroomId: '',
   teacher: '',
-  courseName: '',
-  className: '',
-  classroomId: ''
+  courseType: undefined
 })
 
 // 表单验证规则
 const scheduleRules: FormRules = {
   semester: [
     { required: true, message: '请输入学期', trigger: 'blur' },
-    { pattern: /^\d{4}-\d{4}-\d$/, message: '学期格式应为：2024-2025-1', trigger: 'blur' }
+    { pattern: /^\d{4}-\d$/, message: '学期格式应为：2026-1（年份-学期）', trigger: 'blur' }
   ],
   weekDay: [
     { required: true, message: '请选择星期', trigger: 'change' }
@@ -188,8 +226,14 @@ const scheduleRules: FormRules = {
   teacher: [
     { required: true, message: '请输入教师姓名', trigger: 'blur' }
   ],
-  courseName: [
-    { required: true, message: '请输入课程名称', trigger: 'blur' }
+  courseId: [
+    { required: true, message: '请选择课程', trigger: 'change' }
+  ],
+  classId: [
+    { required: true, message: '请选择班级', trigger: 'change' }
+  ],
+  classroomId: [
+    { required: true, message: '请选择教室', trigger: 'change' }
   ]
 }
 
@@ -207,14 +251,86 @@ const getDialogTitle = () => {
   }
 }
 
-// 获取教室列表
-const fetchClassrooms = async () => {
+// 获取教室列表（支持按教室号搜索）
+const fetchClassrooms = async (keyword = '') => {
   try {
-    const response: any = await classroomAPI.getClassroomList({ page: 1, size: 1000 })
-    classrooms.value = response.data.records
+    classroomLoading.value = true
+    const params: ClassroomQueryParams = {
+      page: 1,
+      size: 50
+    }
+    if (keyword) {
+      params.roomNumber = keyword
+    }
+    const response: any = await classroomAPI.getClassroomList(params)
+    classrooms.value = response.data.records || []
   } catch (error: any) {
     console.error('获取教室列表失败:', error)
+  } finally {
+    classroomLoading.value = false
   }
+}
+
+// 获取课程列表（支持按名称搜索）
+const fetchCourses = async (keyword = '') => {
+  try {
+    courseLoading.value = true
+    const params: CourseQueryParams = {
+      page: 1,
+      size: 20,
+      status: 1
+    }
+    if (keyword) {
+      params.courseName = keyword
+    }
+    const response: any = await courseAPI.getCourseList(params)
+    courses.value = response.data.records || []
+  } catch (error: any) {
+    console.error('获取课程列表失败:', error)
+  } finally {
+    courseLoading.value = false
+  }
+}
+
+// 课程搜索方法（供 el-select remote 使用）
+const handleCourseSearch = (query: string) => {
+  fetchCourses(query.trim())
+}
+
+// 课程选择变化时，同步课程类型到表单（用于后端保存）
+const handleCourseChange = (courseId: string) => {
+  const course = courses.value.find(c => c.id === courseId)
+  scheduleForm.courseType = course?.courseType
+}
+
+// 获取班级列表（支持按名称搜索）
+const fetchClasses = async (keyword = '') => {
+  try {
+    classLoading.value = true
+    const params: ClassQueryParams = {
+      page: 1,
+      size: 50
+    }
+    if (keyword) {
+      params.className = keyword
+    }
+    const response: any = await classAPI.getClassList(params)
+    classes.value = response.data.records || []
+  } catch (error: any) {
+    console.error('获取班级列表失败:', error)
+  } finally {
+    classLoading.value = false
+  }
+}
+
+// 班级搜索方法
+const handleClassSearch = (query: string) => {
+  fetchClasses(query.trim())
+}
+
+// 教室搜索方法
+const handleClassroomSearch = (query: string) => {
+  fetchClassrooms(query.trim())
 }
 
 // 重置表单
@@ -222,10 +338,11 @@ const resetForm = () => {
   scheduleForm.semester = ''
   scheduleForm.weekDay = ''
   scheduleForm.period = '1-2'
+  scheduleForm.classId = ''
+  scheduleForm.courseId = ''
   scheduleForm.teacher = ''
-  scheduleForm.courseName = ''
-  scheduleForm.className = ''
   scheduleForm.classroomId = ''
+  scheduleForm.courseType = undefined
   scheduleFormRef.value?.clearValidate()
 }
 
@@ -234,10 +351,11 @@ const fillForm = (data: ScheduleDetailVO) => {
   scheduleForm.semester = data.semester
   scheduleForm.weekDay = data.weekDay
   scheduleForm.period = data.period
+  scheduleForm.classId = data.classId
+  scheduleForm.courseId = data.courseId
   scheduleForm.teacher = data.teacher
-  scheduleForm.courseName = data.courseName
-  scheduleForm.className = data.className || ''
   scheduleForm.classroomId = data.classroomId || ''
+  scheduleForm.courseType = data.courseType
 }
 
 // 监听对话框显示状态和数据变化
@@ -247,8 +365,14 @@ watch(
     if (visible) {
       if (mode === 'create') {
         resetForm()
+        fetchCourses()
+        fetchClasses()
+        fetchClassrooms()
       } else if (scheduleData && typeof scheduleData === 'object') {
         fillForm(scheduleData)
+        fetchCourses(scheduleData.courseName)
+        fetchClasses(scheduleData.className || '')
+        fetchClassrooms(scheduleData.classroomName || '')
       }
     }
   },
@@ -279,10 +403,11 @@ const handleSubmit = async () => {
         semester: scheduleForm.semester,
         weekDay: scheduleForm.weekDay,
         period: scheduleForm.period,
+        classId: scheduleForm.classId,
+        courseId: scheduleForm.courseId,
+        classroomId: scheduleForm.classroomId,
         teacher: scheduleForm.teacher,
-        courseName: scheduleForm.courseName,
-        className: scheduleForm.className,
-        classroomId: scheduleForm.classroomId
+        courseType: scheduleForm.courseType
       }
       
       const response: any = await scheduleAPI.updateSchedule(props.scheduleData.id, updateData)

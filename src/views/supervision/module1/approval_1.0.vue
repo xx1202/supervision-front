@@ -668,7 +668,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { Document } from '@element-plus/icons-vue'
 import { approvalAPI } from '../../../api'
@@ -855,7 +855,7 @@ const getLearningEvaluationInfo = (learningEvaluation: string, key: string) => {
 const loadApprovalResults = async () => {
   const scheduleId = getScheduleIdFromUrl()
   if (!scheduleId) {
-    ElMessageBox.error('缺少督导安排ID', '错误')
+    ElMessage.error('缺少督导安排ID')
     return
   }
 
@@ -952,7 +952,7 @@ const previewPhoto = async (filePath: string) => {
     window.open(url, '_blank')
   } catch (error) {
     console.error('预览媒体文件失败:', error)
-    ElMessageBox.error('预览媒体文件失败', '错误')
+    ElMessage.error('预览媒体文件失败')
   }
 }
 

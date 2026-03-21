@@ -399,11 +399,10 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { Search, Document } from '@element-plus/icons-vue'
 import {supervisionRecordAPI, classroomAPI, approvalAPI, supervisionScheduleAPI, summaryAPI} from '@/api'
-import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { logger } from '@/utils/logger'
 import { 
   SUPERVISION_RECORD_STATUS,
@@ -709,7 +708,7 @@ const handleClassroomSummary = (record) => {
 // 确认汇总审核
 const confirmSummary = async () => {
   if (!summaryForm.classroomId) {
-    ElMessageBox.warning('请选择要汇总的教室', '提示')
+    ElMessage.warning('请选择要汇总的教室')
     return
   }
 

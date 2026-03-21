@@ -1,64 +1,146 @@
 <template>
   <div class="supervision-record">
-
-
     <div class="page-content">
       <div class="record-container">
-        <!-- 搜索和过滤区域 -->
-        <div class="search-section">
-          <el-form :model="searchForm" inline style="display: flex; align-items: center; justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 20px;">
-              <el-form-item label="时间范围">
-                <el-date-picker
-                    v-model="searchForm.timeRange"
-                    type="datetimerange"
+        <!-- 按督导安排查看模式 -->
+        <div v-if="viewMode === 'bySchedule'" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+          <!-- 督导安排选择视图 -->
+          <div v-if="!selectedScheduleId" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+            <!-- 搜索和过滤区域 -->
+            <div class="search-section">
+              <el-form :model="scheduleSearchForm" inline style="display: flex; align-items: center; justify-content: space-between;">
+                <el-form-item>
+                  <el-radio-group v-model="viewMode" @change="handleViewModeChange" size="default">
+                    <el-radio-button value="bySchedule">按督导安排查看</el-radio-button>
+                    <el-radio-button value="allRecords">全部记录查看</el-radio-button>
+                  </el-radio-group>
+                </el-form-item>
+                <el-form-item label="日期范围">
+                  <el-date-picker
+                    v-model="scheduleSearchForm.dateRange"
+                    type="daterange"
                     range-separator="至"
-                    start-placeholder="开始时间"
-                    end-placeholder="结束时间"
-                    format="YYYY-MM-DD HH:mm:ss"
-                    value-format="YYYY-MM-DD HH:mm:ss"
-                    @change="handleSearch"
-                />
-              </el-form-item>
-<!--              <el-form-item label="教室名称">-->
-<!--                <el-input-->
-<!--                    v-model="searchForm.classroomName"-->
-<!--                    placeholder="输入教室名称"-->
-<!--                    @input="handleSearch"-->
-<!--                    style="width: 200px"-->
-<!--                />-->
-<!--              </el-form-item>-->
-              <el-form-item label="督导安排"  style="width: 180px">
-                <el-select
-                    v-model="searchForm.supervisionScheduleId"
-                    placeholder="选择安排"
-                    clearable
-                    @change="handleSearch"
-                >
-                  <el-option
-                      v-for="supervisionSchedule in supervisionScheduleList"
-                      :key="supervisionSchedule.id"
-                      :label=" supervisionSchedule.supervisionDate + ' ' + supervisionSchedule.weekDay + ' ' + supervisionSchedule.period + '节' "
-                      :value="supervisionSchedule.id"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    format="YYYY-MM-DD"
+                    value-format="YYYY-MM-DD"
+                    @change="handleScheduleSearch"
                   />
-                </el-select>
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" @click="handleSearch">搜索</el-button>
-                <el-button @click="resetSearch">重置</el-button>
-              </el-form-item>
+                </el-form-item>
+                <el-form-item label="状态">
+                  <el-select v-model="scheduleSearchForm.status" placeholder="选择状态" @change="handleScheduleSearch" clearable>
+                    <el-option label="全部" value="" />
+                    <el-option label="待开始" value="pending" />
+                    <el-option label="进行中" value="in_progress" />
+                    <el-option label="已完成" value="completed" />
+                  </el-select>
+                </el-form-item>
+              </el-form>
             </div>
+            
+            <div class="schedule-table">
+              <el-table 
+                :data="filteredScheduleList" 
+                style="width: 100%" 
+                height="100%"
+                v-loading="scheduleLoading"
+                highlight-current-row
+                @row-click="handleScheduleRowClick"
+                :row-class-name="getScheduleRowClassName"
+                fit
+                table-layout="fixed"
+                border
+              >
+                <el-table-column type="index" label="序号" width="60" align="center" />
+                <el-table-column prop="supervisionDate" label="督导日期" width="120" align="center">
+                  <template #default="scope">
+                    {{ formatDate(scope.row.supervisionDate) }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="period" label="节次" width="100" align="center">
+                  <template #default="scope">
+                    第{{ scope.row.period }}节
+                  </template>
+                </el-table-column>
+                <el-table-column prop="leaderName" label="负责人" width="120" align="center" />
+                <el-table-column prop="memberCount" label="成员数" width="100" align="center">
+                  <template #default="scope">
+                    {{ scope.row.memberCount || 0 }}人
+                  </template>
+                </el-table-column>
+                <el-table-column prop="status" label="状态" width="120" align="center">
+                  <template #default="scope">
+                    <el-tag :type="getScheduleStatusType(scope.row.status)" size="small">
+                      {{ getScheduleStatusName(scope.row.status) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="notes" label="备注" min-width="150" show-overflow-tooltip />
+                <el-table-column label="操作" width="120" align="center" fixed="right">
+                  <template #default="scope">
+                    <el-button 
+                      type="primary" 
+                      link 
+                      size="small"
+                      @click.stop="selectSchedule(scope.row.id)"
+                    >
+                      {{ selectedScheduleId === scope.row.id ? '已选择' : '选择' }}
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
 
-            <!-- 表格类型切换 -->
-            <div class="table-type-switch">
-              <el-select v-model="currentTableType" placeholder="选择表格类型" @change="handleTableTypeChange" style="width: 150px;">
-                <el-option label="汇总表" value="summary" />
-                <el-option label="教师评价记录表" value="teacher" />
-                <el-option label="学生记录表" value="student" />
-              </el-select>
+              <!-- 督导安排分页 -->
+              <div class="pagination-wrapper">
+                <el-pagination
+                  v-model:current-page="schedulePagination.current"
+                  v-model:page-size="schedulePagination.size"
+                  :page-sizes="PAGINATION.PAGE_SIZES"
+                  :total="schedulePagination.total"
+                  layout="total, sizes, prev, pager, next, jumper"
+                  @size-change="handleScheduleSizeChange"
+                  @current-change="handleScheduleCurrentChange"
+                />
+              </div>
             </div>
-          </el-form>
-        </div>
+          </div>
+
+          <!-- 汇总记录视图（选择督导安排后显示） -->
+          <div v-else style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+            <!-- 搜索和过滤区域 -->
+            <div class="search-section">
+              <el-form :model="searchForm" inline style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 20px;">
+                  <el-form-item>
+                    <el-button 
+                      text 
+                      type="primary" 
+                      size="small"
+                      @click="clearScheduleSelection"
+                    >
+                      <el-icon><ArrowLeft /></el-icon>
+                      返回选择督导安排
+                    </el-button>
+                    <span class="schedule-title" v-if="selectedSchedule" style="margin-left: 16px;">
+                      督导安排：{{ formatDate(selectedSchedule.supervisionDate) }} 第{{ selectedSchedule.period }}节
+                    </span>
+                  </el-form-item>
+                  <el-form-item>
+                    <el-button type="primary" @click="handleSearch">搜索</el-button>
+                    <el-button @click="resetSearch">重置</el-button>
+                  </el-form-item>
+                </div>
+
+                <!-- 表格类型切换 -->
+                <div class="table-type-switch">
+                  <el-select v-model="currentTableType" placeholder="选择表格类型" @change="handleTableTypeChange" style="width: 150px;">
+                    <el-option label="汇总表" value="summary" />
+                    <el-option label="教师评价记录表" value="teacher" />
+                    <el-option label="学生记录表" value="student" />
+                  </el-select>
+                </div>
+              </el-form>
+            </div>
 
         <div class="record-table">
           <!-- 汇总表 -->
@@ -161,35 +243,35 @@
               <el-table-column label="教学态度" width="60">
                 <template #default="scope">
                   <div v-if="scope.row.teachingEvaluation">
-                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingScore.teachingAttitude') }}
+                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingAttitude') }}
                   </div>
                 </template>
               </el-table-column>
               <el-table-column label="教学方法" width="60">
                 <template #default="scope">
                   <div v-if="scope.row.teachingEvaluation">
-                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingScore.teachingMethod') }}
+                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingMethod') }}
                   </div>
                 </template>
               </el-table-column>
               <el-table-column label="就坐情况" width="60">
                 <template #default="scope">
                   <div v-if="scope.row.teachingEvaluation">
-                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingScore.seatingArrangement') }}
+                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'seatingArrangement') }}
                   </div>
                 </template>
               </el-table-column>
               <el-table-column label="综合效果" width="60">
                 <template #default="scope">
                   <div v-if="scope.row.teachingEvaluation">
-                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingScore.comprehensiveEffect') }}
+                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'comprehensiveEffect') }}
                   </div>
                 </template>
               </el-table-column>
               <el-table-column label="得分" width="60">
                 <template #default="scope">
                   <div v-if="scope.row.teachingEvaluation">
-                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingScore.score') }}
+                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, '  score') }}
                   </div>
                 </template>
               </el-table-column>
@@ -303,28 +385,28 @@
             <el-table-column label="教学方法" width="80">
               <template #default="scope">
                 <div v-if="scope.row.teachingEvaluation">
-                  {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingScore.teachingMethod') }}
+                  {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingMethod') }}
                 </div>
               </template>
             </el-table-column>
             <el-table-column label="就坐情况" width="80">
               <template #default="scope">
                 <div v-if="scope.row.teachingEvaluation">
-                  {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingScore.seatingArrangement') }}
+                  {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'seatingArrangement') }}
                 </div>
               </template>
             </el-table-column>
             <el-table-column label="综合效果" width="80">
               <template #default="scope">
                 <div v-if="scope.row.teachingEvaluation">
-                  {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingScore.comprehensiveEffect') }}
+                  {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'comprehensiveEffect') }}
                 </div>
               </template>
             </el-table-column>
             <el-table-column label="得分" min-width="80">
               <template #default="scope">
                 <div v-if="scope.row.teachingEvaluation">
-                  {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingScore.score') }}
+                  {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'score') }}
                 </div>
               </template>
             </el-table-column>
@@ -499,7 +581,540 @@
               </template>
             </el-table-column>
           </el-table>
+            </div>
+
+            <!-- 分页 -->
+            <div class="pagination-wrapper">
+              <el-button
+                  v-if="!showSelection"
+                  type="warning"
+                  @click="startBatchExport"
+              >
+                批量导出
+              </el-button>
+              <div v-else style="display: flex; gap: 10px; align-items: center;">
+                <el-button
+                    type="warning"
+                    :disabled="selectedRecords.length === 0"
+                    @click="batchExportRecords"
+                >
+                  确认导出 ({{ selectedRecords.length }})
+                </el-button>
+                <el-button
+                    @click="cancelBatchExport"
+                >
+                  取消
+                </el-button>
+              </div>
+              <el-pagination
+                  v-model:current-page="pagination.current"
+                  v-model:page-size="pagination.size"
+                  :page-sizes="[10, 20, 50, 100]"
+                  :total="pagination.total"
+                  layout="total, sizes, prev, pager, next, jumper"
+                  @size-change="handleSizeChange"
+                  @current-change="handleCurrentChange"
+              />
+            </div>
+          </div>
         </div>
+        
+        <!-- 全部记录查看模式 -->
+        <div v-if="viewMode === 'allRecords'" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+          <!-- 搜索和过滤区域 -->
+          <div class="search-section">
+            <el-form :model="searchForm" inline style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 20px;">
+                <el-form-item>
+                  <el-radio-group v-model="viewMode" @change="handleViewModeChange" size="default">
+                    <el-radio-button value="bySchedule">按督导安排查看</el-radio-button>
+                    <el-radio-button value="allRecords">全部记录查看</el-radio-button>
+                  </el-radio-group>
+                </el-form-item>
+                <el-form-item label="时间范围">
+                  <el-date-picker
+                      v-model="searchForm.timeRange"
+                      type="datetimerange"
+                      range-separator="至"
+                      start-placeholder="开始时间"
+                      end-placeholder="结束时间"
+                      format="YYYY-MM-DD HH:mm:ss"
+                      value-format="YYYY-MM-DD HH:mm:ss"
+                      @change="handleSearch"
+                  />
+                </el-form-item>
+                <el-form-item label="督导安排" style="width: 180px">
+                  <el-select
+                      v-model="searchForm.supervisionScheduleId"
+                      placeholder="选择安排"
+                      clearable
+                      @change="handleSearch"
+                  >
+                    <el-option
+                        v-for="supervisionSchedule in supervisionScheduleList"
+                        :key="supervisionSchedule.id"
+                        :label=" supervisionSchedule.supervisionDate + ' ' + supervisionSchedule.weekDay + ' ' + supervisionSchedule.period + '节' "
+                        :value="supervisionSchedule.id"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="handleSearch">搜索</el-button>
+                  <el-button @click="resetSearch">重置</el-button>
+                </el-form-item>
+              </div>
+
+              <!-- 表格类型切换 -->
+              <div class="table-type-switch">
+                <el-select v-model="currentTableType" placeholder="选择表格类型" @change="handleTableTypeChange" style="width: 150px;">
+                  <el-option label="汇总表" value="summary" />
+                  <el-option label="教师评价记录表" value="teacher" />
+                  <el-option label="学生记录表" value="student" />
+                </el-select>
+              </div>
+            </el-form>
+          </div>
+
+          <div class="record-table">
+            <!-- 汇总表 -->
+            <el-table
+                v-if="currentTableType === 'summary'"
+                :data="recordList"
+                style="width: 100%"
+                height="100%"
+                v-loading="loading"
+                fit
+                table-layout="fixed"
+                border
+                @selection-change="handleSelectionChange"
+            >
+              <el-table-column v-if="showSelection" type="selection" width="55" />
+              <el-table-column label="班级" width="100">
+                <template #default="scope">
+                  <div v-if="scope.row.classInfo">
+                    {{ getClassInfo(scope.row.classInfo, 'className') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="课程名称" width="140">
+                <template #default="scope">
+                  <div v-if="scope.row.classInfo">
+                    {{ getClassInfo(scope.row.classInfo, 'courseName') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="课程性质" width="80">
+                <template #default="scope">
+                  <div v-if="scope.row.classInfo">
+                    {{ getClassInfo(scope.row.classInfo, 'courseType') || '理论/实践' }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="任课教师" width="80">
+                <template #default="scope">
+                  <div v-if="scope.row.classInfo">
+                    {{ getClassInfo(scope.row.classInfo, 'teacher') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="辅导员/班主任" width="100">
+                <template #default="scope">
+                  <div v-if="scope.row.classInfo">
+                    {{ getClassInfo(scope.row.classInfo, 'counselor') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="班级人数" width="100">
+                <template #default="scope">
+                  <div v-if="scope.row.classInfo">
+                    {{ getClassInfo(scope.row.classInfo, 'studentCountDetail') }}
+                  </div>
+                </template>
+              </el-table-column>
+
+              <!-- 考勤情况（20分） -->
+              <el-table-column label="考勤情况（20分）" width="250">
+                <el-table-column label="请假人数" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.attendanceInfo">
+                      {{ getAttendanceInfo(scope.row.attendanceInfo, 'leaveCount') }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="旷课人数" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.attendanceInfo">
+                      {{ getAttendanceInfo(scope.row.attendanceInfo, 'absentCount') }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="实到人数" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.attendanceInfo">
+                      {{ getAttendanceInfo(scope.row.attendanceInfo, 'actualCount') }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="到课率(%)" width="70">
+                  <template #default="scope">
+                    <div v-if="scope.row.attendanceInfo">
+                      {{ formatPercentage(getAttendanceInfo(scope.row.attendanceInfo, 'attendanceRate')) }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="得分" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.attendanceInfo">
+                      {{ getAttendanceInfo(scope.row.attendanceInfo, 'score') }}
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table-column>
+
+              <!-- 督教情况（60分） -->
+              <el-table-column label="督教情况（60分）" width="250">
+                <el-table-column label="教学态度" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.teachingEvaluation">
+                      {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingAttitude') }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="教学方法" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.teachingEvaluation">
+                      {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingMethod') }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="就坐情况" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.teachingEvaluation">
+                      {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'seatingArrangement') }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="综合效果" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.teachingEvaluation">
+                      {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'comprehensiveEffect') }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="得分" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.teachingEvaluation">
+                      {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'score') }}
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table-column>
+
+              <!-- 督学情况（20分） -->
+              <el-table-column label="督学情况（20分）" width="180">
+                <el-table-column label="违纪人数" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.learningEvaluation">
+                      {{ getLearningEvaluationInfo(scope.row.learningEvaluation, 'violationCount') }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="违纪率(%)" width="70">
+                  <template #default="scope">
+                    <div v-if="scope.row.learningEvaluation">
+                      {{ formatPercentage(getLearningEvaluationInfo(scope.row.learningEvaluation, 'violationRate')) }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="得分" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.learningEvaluation">
+                      {{ getLearningEvaluationInfo(scope.row.learningEvaluation, 'score') }}
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table-column>
+
+              <el-table-column label="总分" width="60">
+                <template #default="scope">
+                  <span class="total-score">{{ scope.row.totalScore }}</span>
+                </template>
+              </el-table-column>
+
+              <el-table-column label="备注" width="100">
+                <template #default="scope">
+                  {{ scope.row.notes }}
+                </template>
+              </el-table-column>
+
+              <el-table-column label="审核状态" width="90" fixed="right" v-if="hasRole(['ADMIN_OFFICE_DIRECTOR'])">
+                <template #default="scope">
+                  <el-tag :type="getReviewStatusType(scope.row.reviewStatus)">
+                    {{ scope.row.reviewStatusName }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+
+              <el-table-column label="操作" min-width="120" fixed="right" v-if="hasRole(['ADMIN_OFFICE_DIRECTOR'])">
+                <template #default="scope">
+                  <el-button
+                      size="small"
+                      type="warning"
+                      @click="exportRecord(scope.row)"
+                  >
+                    导出
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <!-- 教师评价记录表 -->
+            <el-table
+                v-if="currentTableType === 'teacher'"
+                :data="recordList"
+                style="width: 100%"
+                height="100%"
+                v-loading="loading"
+                fit
+                table-layout="fixed"
+                border
+                @selection-change="handleSelectionChange"
+            >
+              <el-table-column v-if="showSelection" type="selection" width="55" />
+              <el-table-column type="index" label="序号" width="60" />
+              <el-table-column label="任课教师" width="100">
+                <template #default="scope">
+                  <div v-if="scope.row.classInfo">
+                    {{ getClassInfo(scope.row.classInfo, 'teacher') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="班级" width="120">
+                <template #default="scope">
+                  <div v-if="scope.row.classInfo">
+                    {{ getClassInfo(scope.row.classInfo, 'className') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="课程名称" width="180">
+                <template #default="scope">
+                  <div v-if="scope.row.classInfo">
+                    {{ getClassInfo(scope.row.classInfo, 'courseName') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="教室" width="100">
+                <template #default="scope">
+                  {{ scope.row.classroomName }}
+                </template>
+              </el-table-column>
+              <el-table-column label="教学态度" width="80">
+                <template #default="scope">
+                  <div v-if="scope.row.teachingEvaluation">
+                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingAttitude') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="教学方法" width="80">
+                <template #default="scope">
+                  <div v-if="scope.row.teachingEvaluation">
+                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'teachingMethod') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="就坐情况" width="80">
+                <template #default="scope">
+                  <div v-if="scope.row.teachingEvaluation">
+                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'seatingArrangement') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="综合效果" width="80">
+                <template #default="scope">
+                  <div v-if="scope.row.teachingEvaluation">
+                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'comprehensiveEffect') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="得分" min-width="80">
+                <template #default="scope">
+                  <div v-if="scope.row.teachingEvaluation">
+                    {{ getTeachingEvaluationInfo(scope.row.teachingEvaluation, 'score') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="备注" width="200" v-if="hasRole(['ADMIN_OFFICE_DIRECTOR'])">
+                <template #default="scope">
+                  {{ scope.row.notes }}
+                </template>
+              </el-table-column>
+              <el-table-column label="审核状态" width="90" fixed="right" v-if="hasRole(['ADMIN_OFFICE_DIRECTOR'])">
+                <template #default="scope">
+                  <el-tag :type="getReviewStatusType(scope.row.reviewStatus)">
+                    {{ scope.row.reviewStatusName }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" min-width="120" fixed="right" v-if="hasRole(['ADMIN_OFFICE_DIRECTOR'])">
+                <template #default="scope">
+                  <el-button
+                      size="small"
+                      type="warning"
+                      @click="exportRecord(scope.row)"
+                  >
+                    导出
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <!-- 学生记录表 -->
+            <el-table
+                v-if="currentTableType === 'student'"
+                :data="recordList"
+                style="width: 100%"
+                height="100%"
+                v-loading="loading"
+                fit
+                table-layout="fixed"
+                border
+                @selection-change="handleSelectionChange"
+            >
+              <el-table-column v-if="showSelection" type="selection" width="55" />
+              <el-table-column type="index" label="序号" width="60" />
+              <el-table-column label="任课教师" width="100">
+                <template #default="scope">
+                  <div v-if="scope.row.classInfo">
+                    {{ getClassInfo(scope.row.classInfo, 'teacher') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="班级" width="120">
+                <template #default="scope">
+                  <div v-if="scope.row.classInfo">
+                    {{ getClassInfo(scope.row.classInfo, 'className') }}
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="教室" width="100">
+                <template #default="scope">
+                  {{ scope.row.classroomName }}
+                </template>
+              </el-table-column>
+              <el-table-column label="班级人数" width="100">
+                <template #default="scope">
+                  <div v-if="scope.row.classInfo">
+                    {{ getClassInfo(scope.row.classInfo, 'totalStudents') }}
+                  </div>
+                </template>
+              </el-table-column>
+
+              <!-- 考勤情况（20分） -->
+              <el-table-column label="考勤情况（20分）" width="250">
+                <el-table-column label="请假人数" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.attendanceInfo">
+                      {{ getAttendanceInfo(scope.row.attendanceInfo, 'leaveCount') }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="旷课人数" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.attendanceInfo">
+                      {{ getAttendanceInfo(scope.row.attendanceInfo, 'absentCount') }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="实到人数" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.attendanceInfo">
+                      {{ getAttendanceInfo(scope.row.attendanceInfo, 'actualCount') }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="到课率(%)" width="70">
+                  <template #default="scope">
+                    <div v-if="scope.row.attendanceInfo">
+                      {{ formatPercentage(getAttendanceInfo(scope.row.attendanceInfo, 'attendanceRate')) }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="得分" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.attendanceInfo">
+                      {{ getAttendanceInfo(scope.row.attendanceInfo, 'score') }}
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table-column>
+
+              <!-- 督学情况（20分） -->
+              <el-table-column label="督学情况（20分）" width="300">
+                <el-table-column label="玩手机" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.learningEvaluation">
+                      {{ getLearningEvaluationInfo(scope.row.learningEvaluation, 'phonePlayingCount') || 0 }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="睡觉" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.learningEvaluation">
+                      {{ getLearningEvaluationInfo(scope.row.learningEvaluation, 'sleepingCount') || 0 }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="未带教材" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.learningEvaluation">
+                      {{ getLearningEvaluationInfo(scope.row.learningEvaluation, 'noMaterialsCount') || 0 }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="违纪总人数" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.learningEvaluation">
+                      {{ getLearningEvaluationInfo(scope.row.learningEvaluation, 'violationCount') }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="违纪率(%)" width="70">
+                  <template #default="scope">
+                    <div v-if="scope.row.learningEvaluation">
+                      {{ formatPercentage(getLearningEvaluationInfo(scope.row.learningEvaluation, 'violationRate')) }}
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="得分" width="60">
+                  <template #default="scope">
+                    <div v-if="scope.row.learningEvaluation">
+                      {{ getLearningEvaluationInfo(scope.row.learningEvaluation, 'score') }}
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table-column>
+
+              <el-table-column label="审核状态" width="90" fixed="right" v-if="hasRole(['ADMIN_OFFICE_DIRECTOR'])">
+                <template #default="scope">
+                  <el-tag :type="getReviewStatusType(scope.row.reviewStatus)">
+                    {{ scope.row.reviewStatusName }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+
+              <el-table-column label="操作" min-width="120" fixed="right" v-if="hasRole(['ADMIN_OFFICE_DIRECTOR'])">
+                <template #default="scope">
+                  <el-button
+                      size="small"
+                      type="warning"
+                      @click="exportRecord(scope.row)"
+                  >
+                    导出
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
 
           <!-- 分页 -->
           <div class="pagination-wrapper">
@@ -537,19 +1152,54 @@
         </div>
       </div>
     </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { approvalAPI, supervisionScheduleAPI } from '../../../api'
 import type { SupervisionApprovalResultVO } from '../../../types/api'
 import { getUserInfo } from '../../../utils/permission'
 import * as XLSX from 'xlsx'
+import { ArrowLeft } from '@element-plus/icons-vue'
+import { PAGINATION } from '@/constants/common'
 
-// 任务数据列表
+// 视图模式：'bySchedule' - 按督导安排查看, 'allRecords' - 全部记录查看
+const viewMode = ref<'bySchedule' | 'allRecords'>('bySchedule')
+
+// 选中的督导安排ID
+const selectedScheduleId = ref<string>('')
+const selectedSchedule = computed(() => {
+  return scheduleList.value.find(s => s.id === selectedScheduleId.value)
+})
+
+// 督导安排搜索表单
+const scheduleSearchForm = reactive({
+  dateRange: [] as string[],
+  status: ''
+})
+
+// 督导安排列表
+const scheduleList = ref<any[]>([])
+const scheduleLoading = ref(false)
+
+// 过滤后的督导安排列表（用于显示，后端已分页，这里只做前端过滤）
+const filteredScheduleList = computed(() => {
+  return scheduleList.value
+})
+
+// 任务数据列表（用于全部记录查看模式的下拉框）
 const supervisionScheduleList = ref([])
+
+// 督导安排分页信息
+const schedulePagination = reactive({
+  current: 1,
+  size: 10,
+  total: 0,
+  pages: 0
+})
 
 // 搜索表单
 const searchForm = reactive({
@@ -685,6 +1335,12 @@ const formatPercentage = (value: number) => {
   return (value).toFixed(1) + '%'
 }
 
+// 格式化日期
+const formatDate = (date: string) => {
+  if (!date) return ''
+  return new Date(date).toLocaleDateString('zh-CN')
+}
+
 // 加载督导记录列表
 const loadRecordList = async () => {
   loading.value = true
@@ -694,17 +1350,29 @@ const loadRecordList = async () => {
       size: pagination.size
     }
 
-    if (searchForm.timeRange && searchForm.timeRange.length === 2) {
-      params.startTime = searchForm.timeRange[0]
-      params.endTime = searchForm.timeRange[1]
+    // 按督导安排查看模式：必须选择督导安排
+    if (viewMode.value === 'bySchedule') {
+      if (!selectedScheduleId.value) {
+        recordList.value = []
+        pagination.total = 0
+        loading.value = false
+        return
+      }
+      params.supervisionScheduleId = selectedScheduleId.value
+    } else {
+      // 全部记录查看模式：可选督导安排筛选
+      if (searchForm.supervisionScheduleId) {
+        params.supervisionScheduleId = searchForm.supervisionScheduleId
+      }
+      // 处理时间范围
+      if (searchForm.timeRange && searchForm.timeRange.length === 2) {
+        params.startTime = searchForm.timeRange[0]
+        params.endTime = searchForm.timeRange[1]
+      }
     }
 
     if (searchForm.classroomName) {
       params.classroomName = searchForm.classroomName
-    }
-
-    if (searchForm.supervisionScheduleId){
-      params.supervisionScheduleId = searchForm.supervisionScheduleId
     }
 
     const response: any = await approvalAPI.getApprovedRecords(params)
@@ -720,8 +1388,46 @@ const loadRecordList = async () => {
 }
 
 // 加载督导安排列表
+const loadScheduleList = async () => {
+  scheduleLoading.value = true
+  try {
+    const params: any = { 
+      current: schedulePagination.current, 
+      size: schedulePagination.size 
+    }
+    
+    // 如果有日期范围筛选
+    if (scheduleSearchForm.dateRange && scheduleSearchForm.dateRange.length === 2) {
+      params.startDate = scheduleSearchForm.dateRange[0]
+      params.endDate = scheduleSearchForm.dateRange[1]
+    }
+    
+    // 如果有状态筛选
+    if (scheduleSearchForm.status) {
+      params.status = scheduleSearchForm.status
+    }
+    
+    const response: any = await supervisionScheduleAPI.getScheduleList(params)
+    if (response.code === 200 && response.data) {
+      scheduleList.value = response.data.records || []
+      schedulePagination.total = response.data.total || 0
+      schedulePagination.pages = response.data.pages || 0
+      
+      // 在全部记录查看模式下，也更新 supervisionScheduleList 用于下拉框
+      if (viewMode.value === 'allRecords') {
+        supervisionScheduleList.value = response.data.records || []
+      }
+    }
+  } catch (error: any) {
+    console.error('加载督导安排列表失败:', error)
+    handleApiError(error, '加载督导安排列表失败')
+  } finally {
+    scheduleLoading.value = false
+  }
+}
+
+// 加载全部记录查看模式下的督导安排列表（用于下拉框）
 const loadsupervisionScheduleList = async () => {
-  loading.value = true
   try {
     // 获取本周日期范围
     const getThisWeekRange = () => {
@@ -743,7 +1449,7 @@ const loadsupervisionScheduleList = async () => {
 
     const params: any = {
       current: 1,
-      size: 10,
+      size: 100, // 获取更多数据用于下拉框
       startDate: startDate,
       endDate: endDate,
     }
@@ -752,13 +1458,114 @@ const loadsupervisionScheduleList = async () => {
     if (response.code != 200) {
       showErrorMessage(response, "获取督导安排失败")
     }
-    supervisionScheduleList.value = response.data.records
+    supervisionScheduleList.value = response.data.records || []
   } catch (error) {
     console.error('加载督导安排列表失败:', error)
-  } finally {
-    loading.value = false
   }
 }
+// 督导安排搜索处理
+const handleScheduleSearch = () => {
+  schedulePagination.current = 1
+  loadScheduleList()
+}
+
+// 督导安排分页处理
+const handleScheduleSizeChange = (size: number) => {
+  schedulePagination.size = size
+  schedulePagination.current = 1
+  loadScheduleList()
+}
+
+const handleScheduleCurrentChange = (current: number) => {
+  schedulePagination.current = current
+  loadScheduleList()
+}
+
+// 获取督导安排状态名称
+const getScheduleStatusName = (status: string) => {
+  const statusMap: Record<string, string> = {
+    'pending': '待开始',
+    'in_progress': '进行中',
+    'completed': '已完成',
+    'cancelled': '已取消'
+  }
+  return statusMap[status] || '未知'
+}
+
+// 获取督导安排状态类型（用于标签颜色）
+const getScheduleStatusType = (status: string) => {
+  const typeMap: Record<string, string> = {
+    'pending': 'info',
+    'in_progress': 'primary',
+    'completed': 'success',
+    'cancelled': 'danger'
+  }
+  return typeMap[status] || 'info'
+}
+
+// 获取表格行类名（用于高亮选中的行）
+const getScheduleRowClassName = ({ row }: { row: any }) => {
+  if (row.id === selectedScheduleId.value) {
+    return 'selected-row'
+  }
+  return ''
+}
+
+// 处理表格行点击
+const handleScheduleRowClick = (row: any) => {
+  selectSchedule(row.id)
+}
+
+// 选择督导安排
+const selectSchedule = (scheduleId: string) => {
+  selectedScheduleId.value = scheduleId
+}
+
+// 监听督导安排选择变化
+watch(selectedScheduleId, (newScheduleId) => {
+  if (newScheduleId && viewMode.value === 'bySchedule') {
+    pagination.current = 1
+    loadRecordList()
+  }
+})
+
+// 清除督导安排选择
+const clearScheduleSelection = () => {
+  selectedScheduleId.value = ''
+  recordList.value = []
+  pagination.total = 0
+}
+
+// 处理视图模式切换
+const handleViewModeChange = () => {
+  // 切换模式时重置搜索条件
+  if (viewMode.value === 'bySchedule') {
+    // 切换到按督导安排查看模式：清空记录，等待选择督导安排
+    searchForm.supervisionScheduleId = ''
+    searchForm.timeRange = []
+    selectedScheduleId.value = ''
+    recordList.value = []
+    pagination.total = 0
+    pagination.current = 1
+    // 重置督导安排分页
+    schedulePagination.current = 1
+    loadScheduleList()
+  } else {
+    // 切换到全部记录查看模式：加载督导安排列表（用于筛选）和记录
+    selectedScheduleId.value = ''
+    pagination.current = 1
+    // 加载督导安排列表（用于全部记录模式下的筛选下拉框）
+    loadsupervisionScheduleList()
+    // 加载记录
+    loadRecordList()
+  }
+}
+
+// 监听视图模式变化
+watch(viewMode, () => {
+  handleViewModeChange()
+}, { immediate: false })
+
 // 搜索处理
 const handleSearch = () => {
   pagination.current = 1
@@ -767,8 +1574,15 @@ const handleSearch = () => {
 
 // 重置搜索
 const resetSearch = () => {
-  searchForm.timeRange = []
-  searchForm.classroomName = ''
+  if (viewMode.value === 'bySchedule') {
+    // 按督导安排查看模式：只重置状态（如果有的话）
+    // 这里可以添加其他需要重置的字段
+  } else {
+    // 全部记录查看模式：重置所有条件
+    searchForm.timeRange = []
+    searchForm.classroomName = ''
+    searchForm.supervisionScheduleId = ''
+  }
   handleSearch()
 }
 
@@ -898,11 +1712,11 @@ const generateTeacherTableData = (data: SupervisionApprovalResultVO[]) => {
     getClassInfo(row.classInfo, 'className'),
     getClassInfo(row.classInfo, 'courseName'),
     row.classroomName,
-    getTeachingEvaluationInfo(row.teachingEvaluation, 'teachingScore.teachingAttitude'),
-    getTeachingEvaluationInfo(row.teachingEvaluation, 'teachingScore.teachingMethod'),
-    getTeachingEvaluationInfo(row.teachingEvaluation, 'teachingScore.seatingArrangement'),
-    getTeachingEvaluationInfo(row.teachingEvaluation, 'teachingScore.comprehensiveEffect'),
-    getTeachingEvaluationInfo(row.teachingEvaluation, 'teachingScore.score'),
+    getTeachingEvaluationInfo(row.teachingEvaluation, 'teachingAttitude'),
+    getTeachingEvaluationInfo(row.teachingEvaluation, ''),
+    getTeachingEvaluationInfo(row.teachingEvaluation, 'seatingArrangement'),
+    getTeachingEvaluationInfo(row.teachingEvaluation, 'comprehensiveEffect'),
+    getTeachingEvaluationInfo(row.teachingEvaluation, 'score'),
     row.notes || ''
   ])
 
@@ -1065,22 +1879,29 @@ const downloadExcel = (data: any[][], fileName: string) => {
 // 导出记录
 const exportRecord = (row: SupervisionApprovalResultVO) => {
   try {
-    const tableTypeName = currentTableType.value === 'summary' ? '汇总表' : 
-                         currentTableType.value === 'teacher' ? '教师评价记录表' : '学生记录表'
+    // 根据当前表格类型确定导出文件名称
+    const fileNamePrefix =
+      currentTableType.value === 'summary'
+        ? '日常教学督导（汇总）'
+        : currentTableType.value === 'teacher'
+          ? '日常教学督导（原始）-教师评价'
+          : '日常教学督导（原始）-学生评价'
+
     const data = generateTableData([row], currentTableType.value)
-    const fileName = `督导审核结果_${tableTypeName}_${new Date().getTime()}.xlsx`
+    const fileName = `${fileNamePrefix}_${new Date().getTime()}.xlsx`
     downloadExcel(data, fileName)
     const response: any = { code: 200, message: '导出成功' }
     showSuccessMessage(response, '导出成功')
   } catch (error: any) {
-    ElMessageBox.error(error.message || '导出失败', '错误')
+    handleApiError(error, '导出失败')
   }
 }
 
 // 批量导出
 const batchExportRecords = async () => {
   if (selectedRecords.value.length === 0) {
-    ElMessageBox.warning('请选择要导出的记录', '提示')
+    const response: any = { code: 400, message: '请选择要导出的记录' }
+    showErrorMessage(response, '请选择要导出的记录')
     return
   }
 
@@ -1096,10 +1917,15 @@ const batchExportRecords = async () => {
     )
 
     // 前端导出实现
-    const tableTypeName = currentTableType.value === 'summary' ? '汇总表' : 
-                         currentTableType.value === 'teacher' ? '教师评价记录表' : '学生记录表'
+    const fileNamePrefix =
+      currentTableType.value === 'summary'
+        ? '日常教学督导（汇总）'
+        : currentTableType.value === 'teacher'
+          ? '日常教学督导（原始）-教师评价'
+          : '日常教学督导（原始）-学生评价'
+
     const data = generateTableData(selectedRecords.value, currentTableType.value)
-    const fileName = `督导审核结果_${tableTypeName}_批量_${new Date().getTime()}.xlsx`
+    const fileName = `${fileNamePrefix}_批量_${new Date().getTime()}.xlsx`
     downloadExcel(data, fileName)
     
     const response: any = { code: 200, message: `批量导出 ${selectedRecords.value.length} 条记录成功` }
@@ -1146,7 +1972,8 @@ const batchExportRecords = async () => {
         const errorData = JSON.parse(text)
         showErrorMessage(errorData, '导出失败')
       } catch (e) {
-        ElMessageBox.error('导出失败：服务器返回了无效的数据格式', '错误')
+        const errorResponse: any = { code: 500, message: '导出失败：服务器返回了无效的数据格式' }
+        showErrorMessage(errorResponse, '导出失败')
       }
     }
     */
@@ -1164,7 +1991,8 @@ const batchExportRecords = async () => {
           const errorData = JSON.parse(errorText)
           showErrorMessage(errorData, '批量导出失败')
         } catch (e) {
-          ElMessageBox.error('导出失败，请稍后重试', '错误')
+          const errorResponse: any = { code: 500, message: '导出失败，请稍后重试' }
+          showErrorMessage(errorResponse, '导出失败')
         }
       } else {
         ElMessage.error(error.message || '批量导出失败')
@@ -1189,8 +2017,19 @@ const cancelBatchExport = () => {
 
 // 组件挂载时加载数据
 onMounted(() => {
-  loadRecordList()
-  loadsupervisionScheduleList()
+  // 加载督导安排列表
+  loadScheduleList()
+  
+  // 只有在全部记录查看模式下才自动加载记录
+  // 按督导安排查看模式下，需要先选择督导安排
+  if (viewMode.value === 'allRecords') {
+    loadRecordList()
+    loadsupervisionScheduleList()
+  } else {
+    // 按督导安排查看模式：初始状态清空记录列表
+    recordList.value = []
+    pagination.total = 0
+  }
 })
 </script>
 
@@ -1275,5 +2114,45 @@ onMounted(() => {
 .score-poor {
   color: #f56c6c;
   font-weight: bold;
+}
+
+/* 督导安排表格 */
+.schedule-table {
+  margin-top: 3px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.schedule-table :deep(.el-table__footer-wrapper) {
+  margin-bottom: 0;
+}
+
+.schedule-table :deep(.el-table__fixed-footer-wrapper) {
+  margin-bottom: 0;
+}
+
+/* 选中行的样式 */
+.schedule-table :deep(.el-table .selected-row) {
+  background-color: #ecf5ff;
+}
+
+.schedule-table :deep(.el-table .selected-row:hover > td) {
+  background-color: #d9ecff !important;
+}
+
+.schedule-table :deep(.el-table tbody tr) {
+  cursor: pointer;
+}
+
+.schedule-table :deep(.el-table tbody tr:hover) {
+  background-color: #f5f7fa;
+}
+
+.schedule-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
 }
 </style>

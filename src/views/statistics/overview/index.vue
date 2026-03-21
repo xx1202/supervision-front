@@ -158,7 +158,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { Document, Download, Refresh, Printer } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage } from '@/utils/error-handler'
 
 // 筛选表单
@@ -229,19 +229,19 @@ const refreshData = () => {
 
 // 打印报表
 const printReport = () => {
-  ElMessageBox.info('打印功能', '提示')
+  ElMessage.info('打印功能')
 }
 
 // 搜索数据
 const searchData = () => {
-  ElMessageBox.info('搜索统计数据', '提示')
+  ElMessage.info('搜索统计数据')
 }
 
 // 重置筛选
 const resetFilter = () => {
   filterForm.period = '本周'
   filterForm.module = ''
-  ElMessageBox.info('重置筛选条件', '提示')
+  ElMessage.info('重置筛选条件')
 }
 </script>
 

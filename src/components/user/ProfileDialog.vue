@@ -95,7 +95,7 @@
 
 <script setup lang="ts">
 import {ref, reactive, watch, computed} from 'vue'
-import type { FormInstance, FormRules, type UploadFile } from 'element-plus'
+import type { FormInstance, FormRules, UploadFile } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import {authAPI, fileAPI, userAPI} from '../../api'
 import type { UserProfileVO } from '../../types/api'

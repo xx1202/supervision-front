@@ -656,12 +656,20 @@ export interface ScheduleDetailVO {
   semester: string
   weekDay: string
   period: string
-  teacher: string
-  courseName: string
+  classId: string
   className?: string
-  classroomId?: string
+  courseId: string
+  courseName: string
+  classroomId: string
   classroomName?: string
+  teacher: string
+  courseType?: 'theory' | 'training'
+  courseTypeName?: string
+  status?: number
+  statusName?: string
+  createdBy?: string
   createdTime: string
+  updatedBy?: string
   updatedTime?: string
 }
 
@@ -670,10 +678,11 @@ export interface ScheduleRequest {
   semester: string
   weekDay: string
   period: string
+  classId: string
+  courseId: string
+  classroomId: string
   teacher: string
-  courseName: string
-  className?: string
-  classroomId?: string
+  courseType?: 'theory' | 'training'
 }
 
 // 按日期和节次查询的课表VO

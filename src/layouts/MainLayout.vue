@@ -84,12 +84,15 @@
     <!-- 页面进度条 -->
     <PageProgress />
   </div>
+  <div class="app-main-layout">
+    <AiChatWidget />
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ElMessageBox, ElNotification } from 'element-plus'
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import { showSuccessMessage, handleApiError } from '@/utils/error-handler'
 import AdminSidebar from '@/components/supervision/AdminSidebar.vue'
 import AppHeader from '@/components/common/AppHeader.vue'
@@ -100,6 +103,7 @@ import { useThemeStore } from '@/store/theme'
 import { useUserStore } from '@/store/modules/user'
 import { useNotificationStore } from '@/store/modules/notification'
 import { logger } from '@/utils/logger'
+import AiChatWidget from '@/components/AiChatWidget.vue';
 
 interface TabItem {
   path: string
@@ -165,7 +169,7 @@ const getUserInfo = () => {
         dangerouslyUseHTMLString: false
       })
     } else {
-      ElMessageBox.warning('未找到用户信息，使用默认设置', '提示')
+      ElMessage.warning('未找到用户信息，使用默认设置')
     }
   } catch (error) {
     console.error('获取用户信息失败:', error)

@@ -157,7 +157,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch, computed } from 'vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { supervisionScheduleAPI, userAPI } from '../../api'
 
@@ -355,7 +355,7 @@ const handleSubmit = async () => {
     
     // 只有在创建模式下才检查时间冲突
     if (!props.isEdit && timeConflict.value) {
-      ElMessageBox.warning('请解决时间冲突后再提交', '提示')
+      ElMessage.warning('请解决时间冲突后再提交')
       return
     }
     

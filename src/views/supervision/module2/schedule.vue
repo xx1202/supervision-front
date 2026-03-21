@@ -145,9 +145,7 @@
             </el-table-column>
             <el-table-column prop="period" label="节次" width="80">
               <template #default="scope">
-                <el-tag :type="getStatusType(scope.row.status)">
-                  {{ scope.row.period }}节
-                </el-tag>
+                第{{ scope.row.period }}节
               </template>
             </el-table-column>
             <el-table-column prop="leaderName" label="带队领导" width="120" />
@@ -257,18 +255,12 @@
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
             style="width: 100%"
+            @change="handleDateChange"
           />
         </el-form-item>
         
         <el-form-item label="星期" prop="weekDay">
-          <el-select v-model="formData.weekDay" placeholder="选择星期" style="width: 100%">
-            <el-option
-              v-for="item in weekDayOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
+          <el-input v-model="formData.weekDay" placeholder="星期" disabled style="width: 100%" />
         </el-form-item>
         
         <el-form-item label="节次" prop="period">
@@ -348,9 +340,7 @@
             {{ currentSchedule.weekDay }}
           </el-descriptions-item>
           <el-descriptions-item label="节次">
-            <el-tag :type="getStatusType(currentSchedule.status)">
-              {{ currentSchedule.period }}节
-            </el-tag>
+            第{{ currentSchedule.period }}节
           </el-descriptions-item>
           <el-descriptions-item label="带队领导">
             {{ currentSchedule.leaderName }}
@@ -502,7 +492,7 @@ const formData = reactive<CreateScheduleParams>({
 // 表单规则
 const formRules = {
   supervisionDate: [{ required: true, message: '请选择督导日期', trigger: 'change' }],
-  weekDay: [{ required: true, message: '请选择星期', trigger: 'change' }],
+  weekDay: [{ required: true, message: '星期不能为空', trigger: 'change' }],
   period: [{ required: true, message: '请选择节次', trigger: 'change' }],
   leader: [{ required: true, message: '请选择带队领导', trigger: 'change' }],
   members: [{ required: true, message: '请选择督导成员', trigger: 'change' }]
@@ -578,6 +568,23 @@ const formatDateTime = (datetime: string) => {
   return new Date(datetime).toLocaleString('zh-CN')
 }
 
+// 根据日期获取星期
+const getWeekDay = (date: string) => {
+  if (!date) return ''
+  const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  const day = new Date(date).getDay()
+  return weekDays[day]
+}
+
+// 处理日期变化
+const handleDateChange = (date: string) => {
+  if (date) {
+    formData.weekDay = getWeekDay(date)
+  } else {
+    formData.weekDay = ''
+  }
+}
+
 // 加载坐班安排列表
 const loadScheduleList = async () => {
   loading.value = true
@@ -648,12 +655,16 @@ const editSchedule = (row: AdministrativeSchedule) => {
   isEdit.value = true
   Object.assign(formData, {
     supervisionDate: row.supervisionDate,
-    weekDay: row.weekDay,
+    weekDay: row.weekDay, // 编辑时保持原有的星期，也可以根据日期重新计算
     period: row.period,
     leader: row.leader,
     members: row.members,
     notes: row.notes || ''
   })
+  // 如果日期存在，确保星期也正确（编辑时可能日期和星期不一致）
+  if (row.supervisionDate) {
+    formData.weekDay = getWeekDay(row.supervisionDate)
+  }
   dialogVisible.value = true
 }
 

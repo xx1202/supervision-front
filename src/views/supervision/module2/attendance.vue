@@ -517,7 +517,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { Plus, Document, ArrowLeft } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { staffAttendanceAPI, administrativeScheduleAPI, userAPI, officeAPI, smsAPI } from '@/api'
 import { 
   ATTENDANCE_STATUS
@@ -718,7 +718,11 @@ const setupTemporaryAbsentTimers = () => {
   // 为每个暂不在岗的记录设置定时器
   attendanceList.value.forEach(record => {
     if (record.attendanceStatus === ATTENDANCE_STATUS.TEMPORARY_ABSENT && record.id) {
-      setTemporaryAbsentTimer(record.id, record.temporaryAbsentStart || record.checkTime)
+      // 优先使用 temporaryAbsentStart，如果没有则使用 checkTime
+      const startTime = record.temporaryAbsentStart || record.checkTime
+      if (startTime) {
+        setTemporaryAbsentTimer(record.id, startTime)
+      }
     }
   })
 }
@@ -732,15 +736,72 @@ const setTemporaryAbsentTimer = (attendanceId: string, startTime?: string) => {
     return
   }
   
-  const start = new Date(startTime).getTime()
+  // 确保时间字符串有时区信息，如果没有则添加Z（UTC）
+  let timeStr = startTime
+  if (!timeStr.includes('Z') && !timeStr.includes('+') && !timeStr.includes('-', 10)) {
+    // 如果没有时区信息，假设是UTC时间，添加Z
+    timeStr = timeStr.endsWith('Z') ? timeStr : timeStr + 'Z'
+  }
+  
+  const start = new Date(timeStr).getTime()
   const now = Date.now()
   const elapsed = now - start
-  const autoAbsentMinutes = config.business.attendanceAutoAbsentMinutes
+  const autoAbsentMinutes = config.business.attendanceAutoAbsentMinutes || 30
   const remainingTime = (autoAbsentMinutes * 60 * 1000) - elapsed
   
-  // 如果已经超过30分钟，立即设为缺岗
-  if (remainingTime <= 0) {
-    autoSetAbsent(attendanceId)
+  // 添加调试日志
+  console.log('设置暂不在岗定时器:', {
+    attendanceId,
+    startTime: timeStr,
+    startTimestamp: start,
+    nowTimestamp: now,
+    elapsedMinutes: Math.round(elapsed / 60000),
+    remainingMinutes: Math.round(remainingTime / 60000),
+    autoAbsentMinutes
+  })
+  
+  // 如果已经超过30分钟，检查是否真的需要转换
+  // 注意：如果 elapsed 是负数（说明 startTime 是未来时间），说明时间解析有问题，不应该转换
+  if (remainingTime <= 0 && elapsed > 0) {
+    // 确保已经真正超过30分钟（至少超过1分钟，避免时间解析错误导致的误判）
+    const elapsedMinutes = elapsed / (60 * 1000)
+    if (elapsedMinutes >= autoAbsentMinutes) {
+      console.warn('暂不在岗时间已超过30分钟，准备自动转为缺岗:', {
+        attendanceId,
+        elapsedMinutes: Math.round(elapsedMinutes)
+      })
+      // 延迟一小段时间再检查，避免刚设置就立即转换
+      setTimeout(() => {
+        autoSetAbsent(attendanceId)
+      }, 1000)
+      return
+    } else {
+      // 时间未真正超过，重新计算并设置定时器
+      console.warn('时间计算异常，重新设置定时器:', {
+        attendanceId,
+        elapsedMinutes: Math.round(elapsedMinutes),
+        expectedMinutes: autoAbsentMinutes
+      })
+      // 设置一个最小延迟（至少1分钟后才检查）
+      const minDelay = 60 * 1000 // 1分钟
+      const timer = setTimeout(async () => {
+        await autoSetAbsent(attendanceId)
+        temporaryAbsentTimers.delete(attendanceId)
+      }, minDelay)
+      temporaryAbsentTimers.set(attendanceId, timer)
+      return
+    }
+  }
+  
+  // 如果 elapsed 是负数，说明时间解析有问题，不设置定时器
+  if (elapsed < 0) {
+    console.error('时间解析错误，开始时间晚于当前时间:', {
+      attendanceId,
+      startTime: timeStr,
+      startTimestamp: start,
+      nowTimestamp: now,
+      elapsedMinutes: Math.round(elapsed / 60000)
+    })
     return
   }
   
@@ -757,8 +818,41 @@ const setTemporaryAbsentTimer = (attendanceId: string, startTime?: string) => {
 const autoSetAbsent = async (attendanceId: string) => {
   try {
     const record = attendanceList.value.find(r => r.id === attendanceId)
-    if (!record || record.attendanceStatus !== ATTENDANCE_STATUS.TEMPORARY_ABSENT) {
+    if (!record) {
+      console.warn('未找到考勤记录，跳过自动转换:', attendanceId)
       return
+    }
+    
+    // 再次确认状态仍然是暂不在岗（防止已经被手动修改）
+    if (record.attendanceStatus !== ATTENDANCE_STATUS.TEMPORARY_ABSENT) {
+      console.info('考勤记录状态已变更，跳过自动转换:', {
+        attendanceId,
+        currentStatus: record.attendanceStatus
+      })
+      return
+    }
+    
+    // 再次验证时间是否真的超过30分钟
+    if (record.temporaryAbsentStart) {
+      let timeStr = record.temporaryAbsentStart
+      if (!timeStr.includes('Z') && !timeStr.includes('+') && !timeStr.includes('-', 10)) {
+        timeStr = timeStr.endsWith('Z') ? timeStr : timeStr + 'Z'
+      }
+      const start = new Date(timeStr).getTime()
+      const now = Date.now()
+      const elapsed = now - start
+      const autoAbsentMinutes = config.business.attendanceAutoAbsentMinutes || 30
+      const elapsedMinutes = elapsed / (60 * 1000)
+      
+      if (elapsedMinutes < autoAbsentMinutes) {
+        console.warn('时间未超过30分钟，取消自动转换:', {
+          attendanceId,
+          elapsedMinutes: Math.round(elapsedMinutes)
+        })
+        // 重新设置定时器
+        setTemporaryAbsentTimer(attendanceId, record.temporaryAbsentStart)
+        return
+      }
     }
     
     const formData: any = {
@@ -771,7 +865,7 @@ const autoSetAbsent = async (attendanceId: string) => {
     }
     
     const response: any = await staffAttendanceAPI.updateAttendance(attendanceId, formData)
-    ElMessageBox.warning(`教职工 ${record.staffName} 暂不在岗超过${config.business.attendanceAutoAbsentMinutes}分钟，已自动设为缺岗`, '自动缺岗提醒')
+    ElMessage.warning(`教职工 ${record.staffName} 暂不在岗超过${config.business.attendanceAutoAbsentMinutes || 30}分钟，已自动设为缺岗`)
     
     // 重新加载列表
     await loadAttendanceList()

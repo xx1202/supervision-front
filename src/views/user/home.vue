@@ -186,7 +186,7 @@
 import { ref, onMounted, defineAsyncComponent } from 'vue'
 import { authAPI, approvalAPI } from '../../api'
 import type { UserProfileVO } from '../../types/api'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage } from '@/utils/error-handler'
 import { logger } from '@/utils/logger'
 import type { ApiResponse } from '../../types/api'
@@ -302,22 +302,22 @@ const changePassword = () => {
 
 const viewSchedule = () => {
   logger.debug('查看安排')
-  ElMessageBox.info('查看安排功能开发中...', '提示')
+  ElMessage.info('查看安排功能开发中...')
 }
 
 const viewAttendance = () => {
   logger.debug('查看考勤')
-  ElMessageBox.info('查看考勤功能开发中...', '提示')
+  ElMessage.info('查看考勤功能开发中...')
 }
 
 const viewReports = () => {
   logger.debug('查看报告')
-  ElMessageBox.info('查看报告功能开发中...', '提示')
+  ElMessage.info('查看报告功能开发中...')
 }
 
 const viewNotifications = () => {
   logger.debug('查看通知')
-  ElMessageBox.info('查看通知功能开发中...', '提示')
+  ElMessage.info('查看通知功能开发中...')
 }
 
 // 处理修改资料成功

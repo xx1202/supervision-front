@@ -231,7 +231,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { officeAPI } from '@/api'
 import OfficeDialog from '@/components/basic-data/OfficeDialog.vue'
@@ -617,7 +617,7 @@ const deleteOffice = async (row: any) => {
 // 批量删除办公室
 const batchDeleteOffices = async () => {
   if (selectedOffices.value.length === 0) {
-    ElMessageBox.warning('请选择要删除的办公室', '提示')
+    ElMessage.warning('请选择要删除的办公室')
     return
   }
 

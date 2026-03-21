@@ -143,7 +143,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { statisticsAPI } from '../../api' // 确保这里引入了真实的 API 定义
 import {
   init as echartsInit,
@@ -359,8 +359,15 @@ const initInspectionBarChart = async () => {
   let categories = []
   let scores = []
 
+  // 计算当前月份的开始和结束日期
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  const startDate = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`
+  const endDate = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${new Date(currentYear, currentMonth, 0).getDate()}`
+
   try {
-    const res = await statisticsAPI.getInspectionScoresData({}) as any // 假设接口不需要特定参数或已有默认值
+    const res = await statisticsAPI.getInspectionScoresData({ startDate, endDate }) as any
     if (res?.data?.categories && res?.data?.scores) {
       categories = res.data.categories
       scores = res.data.scores
@@ -429,8 +436,17 @@ const initMonthlyCompareChart = async () => {
   let currentValues = []
   let compareValues = []
 
+  // 计算当前月份和上个月份
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  const compareMonth = currentMonth === 1 ? 12 : currentMonth - 1
+  const compareYear = currentMonth === 1 ? currentYear - 1 : currentYear
+  const currentMonthStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}`
+  const compareMonthStr = `${compareYear}-${compareMonth.toString().padStart(2, '0')}`
+
   try {
-    const res = await statisticsAPI.getMonthlyComparisonData({}) as any
+    const res = await statisticsAPI.getMonthlyComparisonData({ currentMonth: currentMonthStr, compareMonth: compareMonthStr }) as any
     if(res?.data?.currentData && res?.data?.compareData) {
       // 假设接口返回的是对象，需要映射到数组
       // 如果接口返回就是数组则直接赋值
@@ -537,7 +553,7 @@ const handleSummaryClick = (metricType: string) => {
     case 'attendance': router.push('/supervision/module2/attendance'); break
     case 'inspection': router.push('/supervision/module3/statistics'); break
     case 'approval': router.push('/supervision/module1/audit'); break
-    default: ElMessageBox.info(`查看${metricType}详细数据`, '提示')
+    default: ElMessage.info(`查看${metricType}详细数据`)
   }
 }
 
