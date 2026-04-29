@@ -484,13 +484,13 @@
 
 
 
-        <div v-if="currentRecord.photos && currentRecord.photos.length > 0">
+        <div v-if="recordPhotos.length > 0">
           <el-button
               size="small"
               type="primary"
-              @click="viewPhotos(currentRecord.photos)"
+              @click="viewPhotos(currentRecord?.photos)"
           >
-            查看照片 ({{ currentRecord.photos.length }})
+            查看照片 ({{ recordPhotos.length }})
           </el-button>
         </div>
         <span v-else style="color: #999;">无照片 </span><!-- 审核信息 -->
@@ -537,7 +537,7 @@
     <!-- 照片查看对话框 -->
     <el-dialog
         v-model="photosDialogVisible"
-        title="查看照片"
+        :title="photosDialogTitle"
         width="800px"
         :close-on-click-modal="false"
         :append-to-body="true"
@@ -548,23 +548,24 @@
             :interval="0"
             indicator-position="outside"
             height="400px"
-            v-model="currentPhotoIndex"
+            :initial-index="currentPhotoIndex"
+            @change="handlePhotoChange"
         >
-          <el-carousel-item v-for="(photo, index) in currentPhotos" :key="index">
+          <el-carousel-item v-for="(photo, index) in currentPhotos" :key="`${photo.path}-${index}`">
             <div class="photo-container">
               <!-- 图片显示 -->
               <img
-                  v-if="getFileType(photo) === 'image'"
-                  :src="photoUrls.get(photo) || ''"
+                  v-if="getFileType(photo.path) === 'image'"
+                  :src="photoUrls.get(photo.path) || ''"
                   :alt="`图片 ${index + 1}`"
                   class="photo-image"
-                  @click="previewPhoto(photo)"
+                  @click="previewPhoto(photo.path)"
                   @error="handleImageError"
               />
               <!-- 视频显示 -->
               <video
-                  v-else-if="getFileType(photo) === 'video'"
-                  :src="photoUrls.get(photo) || ''"
+                  v-else-if="getFileType(photo.path) === 'video'"
+                  :src="photoUrls.get(photo.path) || ''"
                   :alt="`视频 ${index + 1}`"
                   class="photo-image"
                   controls
@@ -574,13 +575,13 @@
               <div
                   v-else
                   class="unknown-file"
-                  @click="previewPhoto(photo)"
+                  @click="previewPhoto(photo.path)"
               >
                 <el-icon><Document /></el-icon>
                 <span>未知文件类型</span>
               </div>
               <div class="photo-info">
-                <span>{{ getFileType(photo) === 'image' ? '图片' : getFileType(photo) === 'video' ? '视频' : '文件' }} {{ index + 1 }} / {{ currentPhotos.length }}</span>
+                <span>{{ getPhotoTypeLabel(photo.types) }} · {{ getFileType(photo.path) === 'image' ? '图片' : getFileType(photo.path) === 'video' ? '视频' : '文件' }} {{ index + 1 }} / {{ currentPhotos.length }}</span>
               </div>
             </div>
           </el-carousel-item>
@@ -591,7 +592,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { showSuccessMessage, showErrorMessage, handleApiError } from '@/utils/error-handler'
 import { supervisionRecordAPI, supervisionScheduleAPI } from '@/api'
@@ -650,9 +651,17 @@ const schedulePagination = reactive({
   pages: 0
 })
 
-const currentPhotos = ref<string[]>([])
+type RecordPhotoType = 'supervision' | 'headcount' | 'unknown'
+
+interface RecordPhotoItem {
+  path: string
+  types: RecordPhotoType[]
+}
+
+const currentPhotos = ref<RecordPhotoItem[]>([])
 const currentPhotoIndex = ref(0)
 const photoUrls = ref<Map<string, string>>(new Map())
+const createdBlobUrls = new Set<string>()
 const photosDialogVisible = ref(false)
 
 // 审核记录数据
@@ -940,7 +949,11 @@ const viewRecord = async (row: any) => {
     const response: any = await supervisionRecordAPI.getRecordDetail(row.id)
     if (response && response.data) {
       if (typeof response.data.photos === 'string') {
-        response.data.photos = JSON.parse(response.data.photos)
+        try {
+          response.data.photos = JSON.parse(response.data.photos)
+        } catch (error) {
+          console.error('解析 photos 字段失败:', error)
+        }
       }
       currentRecord.value = response.data
       detailVisible.value = true
@@ -1032,16 +1045,19 @@ const resubmitRecord = async (row: any) => {
 
 // 处理文件路径格式
 const formatPhotoPath = (filePath: string) => {
-  // 将 /api/v1/supervision/files/2025/08/07/20250807_180118_003.jpg 格式
-  // 转换为 2025/08/07/20250807_184448_030.jpg 格式
-  if (filePath.startsWith('/api/v1/supervision/files/')) {
-    return filePath.replace('/api/v1/supervision/files/', '')
+  const rawPath = typeof filePath === 'string' ? filePath.trim().replace(/^['"]|['"]$/g, '') : ''
+  if (!rawPath) return ''
+
+  // 兼容完整 URL：提取 /api/v1/supervision/files/ 后面的相对路径
+  const apiPathMarker = '/api/v1/supervision/files/'
+  const markerIndex = rawPath.indexOf(apiPathMarker)
+  if (markerIndex !== -1) {
+    const relativePath = rawPath.slice(markerIndex + apiPathMarker.length).split('?')[0]
+    return relativePath
   }
-  // 如果已经是相对路径格式，直接返回
-  if (filePath.includes('/') && !filePath.startsWith('/api/')) {
-    return filePath
-  }
-  return filePath
+
+  // 兼容已经是相对路径但可能带 query/hash 的情况
+  return rawPath.split('?')[0].replace(/^\/+/, '')
 }
 
 // 检测文件类型
@@ -1062,6 +1078,7 @@ const getPhotoUrl = async (filePath: string) => {
     const formattedPath = formatPhotoPath(filePath)
     const blob = await approvalAPI.getMediaFile(formattedPath)
     const objectUrl = URL.createObjectURL(blob)
+    createdBlobUrls.add(objectUrl)
     return objectUrl
   } catch (error) {
     console.error('获取媒体文件失败:', error)
@@ -1079,25 +1096,127 @@ const previewPhoto = async (filePath: string) => {
     handleApiError(error, '预览媒体文件失败')
   }
 }
+
+const getPhotoTypeLabel = (types: RecordPhotoType[]) => {
+  const labels: string[] = []
+  if (types.includes('supervision')) labels.push('督导图片')
+  if (types.includes('headcount')) labels.push('学生人数图片')
+  if (types.includes('unknown') || labels.length === 0) labels.push('未分类图片')
+  return labels.join(' / ')
+}
+
+const photosDialogTitle = computed(() => {
+  if (!currentPhotos.value.length) return '查看图片'
+
+  const currentPhoto = currentPhotos.value[currentPhotoIndex.value]
+  if (!currentPhoto || !currentPhoto.types?.length) return '查看图片'
+
+  const typedTypes = currentPhoto.types.filter(type => type !== 'unknown')
+  if (!typedTypes.length) return '查看图片'
+
+  return getPhotoTypeLabel(typedTypes)
+})
+
+const recordPhotos = computed(() => getRecordPhotos(currentRecord.value?.photos))
+
+const tryParseJson = (value: unknown) => {
+  let parsedValue: unknown = value
+
+  for (let i = 0; i < 3; i++) {
+    if (typeof parsedValue !== 'string') break
+    const trimmed = parsedValue.trim()
+    if (!trimmed) break
+    if (!(trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('"'))) break
+
+    try {
+      parsedValue = JSON.parse(trimmed)
+    } catch {
+      break
+    }
+  }
+
+  return parsedValue
+}
+
+const normalizePhotoPath = (value: unknown) => {
+  if (typeof value !== 'string') return ''
+  const trimmed = value.trim().replace(/^['"]|['"]$/g, '')
+  return trimmed
+}
+
+const getRecordPhotos = (photos: any): RecordPhotoItem[] => {
+  const photoItems: RecordPhotoItem[] = []
+  const parsedPhotos = tryParseJson(photos)
+
+  const pushFromArray = (value: unknown, type: RecordPhotoType) => {
+    const parsedValue = tryParseJson(value)
+    if (!Array.isArray(parsedValue)) return
+
+    for (const item of parsedValue) {
+      const normalizedPath = normalizePhotoPath(item)
+      if (!normalizedPath) continue
+      photoItems.push({
+        path: normalizedPath,
+        types: [type]
+      })
+    }
+  }
+
+  // 新版本：{ supervision: [], headcount: [] }
+  if (parsedPhotos && typeof parsedPhotos === 'object' && !Array.isArray(parsedPhotos)) {
+    const obj = parsedPhotos as Record<string, unknown>
+    if ('supervision' in obj || 'headcount' in obj) {
+      pushFromArray(obj.supervision, 'supervision')
+      pushFromArray(obj.headcount, 'headcount')
+      return photoItems
+    }
+
+    // 兼容包裹结构：{ photos: ... } / { data: ... }
+    if ('photos' in obj) return getRecordPhotos(obj.photos)
+    if ('data' in obj) return getRecordPhotos(obj.data)
+  }
+
+  // 旧版本：[] 或 string[]
+  pushFromArray(parsedPhotos, 'unknown')
+  return photoItems
+}
+
 // 查看照片和视频
-const viewPhotos = async (photos: string[]) => {
-  currentPhotos.value = photos;
+const viewPhotos = async (photos: any) => {
+  const normalizedPhotos = getRecordPhotos(photos)
+  currentPhotos.value = normalizedPhotos
   currentPhotoIndex.value = 0
   photosDialogVisible.value = true
 
   // 预加载所有媒体文件
-  for (const photo of photos) {
-    if (!photoUrls.value.has(photo)) {
+  for (const photo of normalizedPhotos) {
+    if (!photoUrls.value.has(photo.path)) {
       try {
-        const url = await getPhotoUrl(photo)
-        photoUrls.value.set(photo, url)
+        const url = await getPhotoUrl(photo.path)
+        const oldUrl = photoUrls.value.get(photo.path)
+        if (oldUrl && oldUrl.startsWith('blob:') && createdBlobUrls.has(oldUrl)) {
+          URL.revokeObjectURL(oldUrl)
+          createdBlobUrls.delete(oldUrl)
+        }
+        photoUrls.value.set(photo.path, url)
       } catch (error) {
         console.error('预加载媒体文件失败:', error)
-        photoUrls.value.set(photo, 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuekuuS+i+WbvueJhzwvdGV4dD48L3N2Zz4=')
+        photoUrls.value.set(photo.path, 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuekuuS+i+WbvueJhzwvdGV4dD48L3N2Zz4=')
       }
     }
   }
 }
+
+const handlePhotoChange = (index: number) => {
+  currentPhotoIndex.value = index
+}
+
+onBeforeUnmount(() => {
+  createdBlobUrls.forEach((url) => {
+    URL.revokeObjectURL(url)
+  })
+  createdBlobUrls.clear()
+})
 // 处理图片加载错误
 const handleImageError = (event: Event) => {
   const img = event.target as HTMLImageElement
